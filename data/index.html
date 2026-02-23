@@ -1,1532 +1,825 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Nursery System</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500&display=swap"
-        rel="stylesheet">
-    <style>
-        :root {
-            --bg: #080e08;
-            --surface: #0f160f;
-            --card: #141c14;
-            --card2: #182018;
-            --border: #1e2d1e;
-            --border2: #263526;
-            --green: #4ade80;
-            --green-dim: #22c55e;
-            --amber: #fbbf24;
-            --blue: #38bdf8;
-            --red: #f87171;
-            --text: #d1fae5;
-            --text-dim: #86efac;
-            --muted: #4b7055;
-            --mono: 'JetBrains Mono', monospace;
-            --sans: 'DM Sans', sans-serif;
-            --display: 'Syne', sans-serif;
-        }
-
-        :root.light {
-            --bg: #f0faf3;
-            --surface: #e6f4eb;
-            --card: #ffffff;
-            --card2: #f0faf3;
-            --border: #c6e8d0;
-            --border2: #a3d4b4;
-            --green: #16a34a;
-            --green-dim: #15803d;
-            --amber: #d97706;
-            --blue: #0284c7;
-            --red: #dc2626;
-            --text: #14532d;
-            --text-dim: #166534;
-            --muted: #4b7055;
-        }
-
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: var(--sans);
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            padding: 24px 20px 48px;
-            transition: background .3s, color .3s;
-            background-image:
-                radial-gradient(ellipse 60% 40% at 20% 0%, rgba(34, 197, 94, 0.07) 0%, transparent 60%),
-                radial-gradient(ellipse 40% 30% at 80% 100%, rgba(74, 222, 128, 0.05) 0%, transparent 50%);
-        }
-
-        :root.light body {
-            background-image:
-                radial-gradient(ellipse 60% 40% at 20% 0%, rgba(34, 197, 94, 0.1) 0%, transparent 60%),
-                radial-gradient(ellipse 40% 30% at 80% 100%, rgba(22, 163, 74, 0.07) 0%, transparent 50%);
-        }
-
-        .wrap {
-            max-width: 1280px;
-            margin: 0 auto;
-        }
-
-        /* HEADER */
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 32px;
-            flex-wrap: wrap;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .logo {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            flex-shrink: 0;
-            background: linear-gradient(135deg, #166534, #4ade80);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 0 20px rgba(74, 222, 128, 0.25);
-        }
-
-        .header-title {
-            font-family: var(--display);
-            font-size: 1.55rem;
-            font-weight: 800;
-            color: var(--green);
-            line-height: 1.1;
-        }
-
-        .header-sub {
-            font-size: 0.78rem;
-            color: var(--muted);
-            font-family: var(--mono);
-            margin-top: 2px;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .rtc-box {
-            font-family: var(--mono);
-            font-size: 0.88rem;
-            color: var(--text-dim);
-            background: var(--card);
-            border: 1px solid var(--border);
-            padding: 8px 14px;
-            border-radius: 8px;
-            letter-spacing: 0.04em;
-        }
-
-        .rtc-box small {
-            display: block;
-            font-size: 0.68rem;
-            color: var(--muted);
-            margin-bottom: 1px;
-        }
-
-        .conn-badge {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            font-family: var(--mono);
-            border: 1px solid;
-            transition: all .3s;
-        }
-
-        .conn-badge.online {
-            background: rgba(74, 222, 128, .1);
-            border-color: var(--green-dim);
-            color: var(--green);
-        }
-
-        .conn-badge.offline {
-            background: rgba(248, 113, 113, .1);
-            border-color: var(--red);
-            color: var(--red);
-        }
-
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: currentColor;
-            animation: blink 2s infinite;
-        }
-
-        @keyframes blink {
-
-            0%,
-            100% {
-                opacity: 1
-            }
-
-            50% {
-                opacity: .3
-            }
-        }
-
-        /* ALERT */
-        .alert {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: .88rem;
-            font-weight: 500;
-            border: 1px solid;
-        }
-
-        .alert.hidden {
-            display: none;
-        }
-
-        .alert.success {
-            background: rgba(74, 222, 128, .1);
-            border-color: var(--green-dim);
-            color: var(--green);
-        }
-
-        .alert.error {
-            background: rgba(248, 113, 113, .1);
-            border-color: var(--red);
-            color: var(--red);
-        }
-
-        /* SECTION LABEL */
-        .sec {
-            font-family: var(--mono);
-            font-size: .68rem;
-            font-weight: 600;
-            letter-spacing: .15em;
-            text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .sec::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border);
-        }
-
-        /* GRID */
-        .g3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
-            margin-bottom: 14px;
-        }
-
-        .g5 {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
-            margin-bottom: 14px;
-        }
-
-        .g2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-bottom: 14px;
-        }
-
-        .g23 {
-            display: grid;
-            grid-template-columns: 2fr 3fr;
-            gap: 14px;
-            margin-bottom: 14px;
-        }
-
-        /* CARD */
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 18px;
-            position: relative;
-            overflow: hidden;
-            transition: border-color .3s, background .3s;
-        }
-
-        .card:hover {
-            border-color: var(--border2);
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(74, 222, 128, .025) 0%, transparent 60%);
-            pointer-events: none;
-        }
-
-        /* THEME TOGGLE */
-        .theme-btn {
-            width: 38px;
-            height: 38px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--card);
-            color: var(--text-dim);
-            font-size: 1.1rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all .2s;
-            flex-shrink: 0;
-        }
-
-        .theme-btn:hover {
-            border-color: var(--border2);
-            background: var(--card2);
-        }
-
-        /* ENV CARDS */
-        .env .clabel {
-            font-family: var(--mono);
-            font-size: .66rem;
-            font-weight: 500;
-            letter-spacing: .12em;
-            text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .env .val {
-            font-family: var(--mono);
-            font-size: 2.8rem;
-            font-weight: 600;
-            line-height: 1;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-
-        .env .val .u {
-            font-size: .9rem;
-            font-weight: 400;
-            color: var(--muted);
-            margin-left: 3px;
-        }
-
-        .env .desc {
-            font-size: .75rem;
-            color: var(--muted);
-            font-family: var(--mono);
-        }
-
-        .env.temp {
-            border-top: 2px solid #f97316;
-        }
-
-        .env.humid {
-            border-top: 2px solid var(--blue);
-        }
-
-        .env.lux {
-            border-top: 2px solid var(--amber);
-        }
-
-        /* SOIL CARDS */
-        .soil .snum {
-            font-family: var(--mono);
-            font-size: .62rem;
-            font-weight: 600;
-            letter-spacing: .1em;
-            color: var(--muted);
-            margin-bottom: 6px;
-            text-transform: uppercase;
-        }
-
-        .soil .sval {
-            font-family: var(--mono);
-            font-size: 1.85rem;
-            font-weight: 600;
-            line-height: 1;
-            color: var(--text);
-        }
-
-        .soil .sval .u {
-            font-size: .78rem;
-            font-weight: 400;
-            color: var(--muted);
-        }
-
-        .soil .btrack {
-            width: 100%;
-            height: 4px;
-            background: var(--border);
-            border-radius: 3px;
-            margin-top: 9px;
-            overflow: hidden;
-        }
-
-        .soil .bfill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width .6s ease;
-            background: linear-gradient(90deg, #16a34a, #4ade80);
-        }
-
-        .soil .bfill.dry {
-            background: linear-gradient(90deg, #b45309, #fbbf24);
-        }
-
-        .soil .bfill.wet {
-            background: linear-gradient(90deg, #0369a1, #38bdf8);
-        }
-
-        .soil .slabel {
-            font-size: .62rem;
-            font-family: var(--mono);
-            margin-top: 5px;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .08em;
-        }
-
-        /* PUMP CARD */
-        .pump-ring {
-            width: 78px;
-            height: 78px;
-            border-radius: 50%;
-            border: 3px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 14px;
-            font-size: 1.9rem;
-            transition: all .4s;
-        }
-
-        .pump-ring.idle {
-            border-color: var(--border2);
-        }
-
-        .pump-ring.running {
-            border-color: var(--green);
-            box-shadow: 0 0 0 0 rgba(74, 222, 128, .3);
-            animation: pulsering 1.8s ease-out infinite;
-        }
-
-        .pump-ring.cooldown {
-            border-color: var(--amber);
-            box-shadow: 0 0 16px rgba(251, 191, 36, .25);
-        }
-
-        .pump-ring.error {
-            border-color: var(--red);
-            box-shadow: 0 0 16px rgba(248, 113, 113, .25);
-        }
-
-        @keyframes pulsering {
-            0% {
-                box-shadow: 0 0 0 0 rgba(74, 222, 128, .4)
-            }
-
-            70% {
-                box-shadow: 0 0 0 12px rgba(74, 222, 128, 0)
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(74, 222, 128, 0)
-            }
-        }
-
-        .pump-lbl {
-            text-align: center;
-            font-family: var(--mono);
-            font-size: .78rem;
-            font-weight: 600;
-            letter-spacing: .12em;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-
-        .pump-lbl.idle {
-            color: var(--muted);
-        }
-
-        .pump-lbl.running {
-            color: var(--green);
-        }
-
-        .pump-lbl.cooldown {
-            color: var(--amber);
-        }
-
-        .pump-lbl.error {
-            color: var(--red);
-        }
-
-        .pump-desc {
-            text-align: center;
-            font-size: .75rem;
-            color: var(--muted);
-            margin-bottom: 14px;
-        }
-
-        .trow {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--card2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 14px;
-        }
-
-        .trow .tl {
-            font-size: .72rem;
-            color: var(--muted);
-            font-family: var(--mono);
-        }
-
-        .trow .tv {
-            font-family: var(--mono);
-            font-weight: 600;
-            color: var(--green);
-            font-size: .95rem;
-        }
-
-        /* SCHEDULE CARD */
-        .sched-list {
-            display: flex;
-            flex-direction: column;
-            gap: 9px;
-        }
-
-        .sched-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--card2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 11px 15px;
-        }
-
-        .sched-n {
-            font-family: var(--mono);
-            font-size: .64rem;
-            font-weight: 600;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-            color: var(--muted);
-        }
-
-        .sched-t {
-            font-family: var(--mono);
-            font-size: 1.3rem;
-            font-weight: 600;
-            color: var(--text);
-            letter-spacing: .04em;
-        }
-
-        .sched-s {
-            font-size: .68rem;
-            font-family: var(--mono);
-            color: var(--muted);
-        }
-
-        /* DATA */
-        .dstats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .dstat {
-            background: var(--card2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-
-        .dstat .dv {
-            font-family: var(--mono);
-            font-size: 1.35rem;
-            font-weight: 600;
-            color: var(--text);
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-
-        .dstat .dl {
-            font-size: .65rem;
-            font-family: var(--mono);
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .1em;
-        }
-
-        /* CARD HEADER */
-        .chard {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-
-        .ctitle {
-            font-family: var(--display);
-            font-size: .95rem;
-            font-weight: 700;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* BUTTONS */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 10px 17px;
-            border-radius: 8px;
-            border: 1px solid;
-            font-size: .83rem;
-            font-weight: 500;
-            font-family: var(--sans);
-            cursor: pointer;
-            transition: all .2s;
-        }
-
-        .btn:active {
-            transform: scale(.97);
-        }
-
-        .btn-p {
-            background: rgba(74, 222, 128, .12);
-            border-color: var(--green-dim);
-            color: var(--green);
-        }
-
-        .btn-p:hover {
-            background: rgba(74, 222, 128, .2);
-        }
-
-        .btn-d {
-            background: rgba(248, 113, 113, .1);
-            border-color: #ef4444;
-            color: var(--red);
-        }
-
-        .btn-d:hover {
-            background: rgba(248, 113, 113, .2);
-        }
-
-        .btn-g {
-            background: var(--card2);
-            border-color: var(--border);
-            color: var(--text-dim);
-        }
-
-        .btn-g:hover {
-            border-color: var(--border2);
-        }
-
-        .btn-w {
-            background: rgba(251, 191, 36, .1);
-            border-color: #d97706;
-            color: var(--amber);
-        }
-
-        .btn-w:hover {
-            background: rgba(251, 191, 36, .2);
-        }
-
-        .acts {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        /* SETTINGS TABS */
-        .tabs {
-            display: flex;
-            gap: 4px;
-            background: var(--card2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 4px;
-            margin-bottom: 20px;
-        }
-
-        .tab {
-            flex: 1;
-            padding: 8px 10px;
-            border: none;
-            background: transparent;
-            color: var(--muted);
-            font-size: .75rem;
-            font-weight: 500;
-            font-family: var(--mono);
-            border-radius: 7px;
-            cursor: pointer;
-            transition: all .2s;
-            letter-spacing: .04em;
-            text-transform: uppercase;
-        }
-
-        .tab.on {
-            background: var(--card);
-            color: var(--green);
-            border: 1px solid var(--border);
-        }
-
-        .panel {
-            display: none;
-        }
-
-        .panel.on {
-            display: block;
-        }
-
-        .fgrid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-            gap: 14px;
-        }
-
-        .fg {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .fl {
-            font-family: var(--mono);
-            font-size: .68rem;
-            font-weight: 500;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-            color: var(--muted);
-        }
-
-        .fl span {
-            text-transform: none;
-            letter-spacing: 0;
-            font-weight: 400;
-        }
-
-        .fi {
-            background: var(--card2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 14px;
-            color: var(--text);
-            font-size: .88rem;
-            font-family: var(--mono);
-            transition: border-color .2s;
-            width: 100%;
-        }
-
-        .fi:focus {
-            outline: none;
-            border-color: var(--green-dim);
-            box-shadow: 0 0 0 3px rgba(74, 222, 128, .08);
-        }
-
-        .fh {
-            font-size: .7rem;
-            color: var(--muted);
-        }
-
-        .fax {
-            display: flex;
-            gap: 10px;
-            margin-top: 18px;
-            flex-wrap: wrap;
-        }
-
-        .div {
-            height: 1px;
-            background: var(--border);
-            margin: 14px 0;
-        }
-
-        /* LOGS */
-        .logbox {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px;
-            max-height: 360px;
-            overflow-y: auto;
-            font-family: var(--mono);
-            font-size: .76rem;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border) transparent;
-        }
-
-        .logrow {
-            display: flex;
-            gap: 12px;
-            align-items: baseline;
-            padding: 5px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .logrow:last-child {
-            border-bottom: none;
-        }
-
-        .logts {
-            color: var(--muted);
-            flex-shrink: 0;
-            font-size: .7rem;
-        }
-
-        .logmsg {
-            color: var(--text-dim);
-            word-break: break-word;
-        }
-
-        .logempty {
-            text-align: center;
-            padding: 24px;
-            color: var(--muted);
-        }
-
-        /* RESPONSIVE */
-        @media(max-width:1024px) {
-            .g23 {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        @media(max-width:800px) {
-            .g3 {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .g5 {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .g2,
-            .g23 {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media(max-width:520px) {
-            .g3 {
-                grid-template-columns: 1fr;
-            }
-
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .env .val {
-                font-size: 2.4rem;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Nursery System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #080e08;
+      --surface:  #0f160f;
+      --card:     #141c14;
+      --card2:    #182018;
+      --border:   #1e2d1e;
+      --border2:  #263526;
+      --green:    #4ade80;
+      --green-dim:#22c55e;
+      --amber:    #fbbf24;
+      --blue:     #38bdf8;
+      --red:      #f87171;
+      --text:     #d1fae5;
+      --text-dim: #86efac;
+      --muted:    #4b7055;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'DM Sans', sans-serif;
+      --display:  'Syne', sans-serif;
+    }
+    :root.light {
+      --bg:       #f0faf3;
+      --surface:  #e6f4eb;
+      --card:     #ffffff;
+      --card2:    #f0faf3;
+      --border:   #c6e8d0;
+      --border2:  #a3d4b4;
+      --green:    #16a34a;
+      --green-dim:#15803d;
+      --amber:    #d97706;
+      --blue:     #0284c7;
+      --red:      #dc2626;
+      --text:     #14532d;
+      --text-dim: #166534;
+      --muted:    #4b7055;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 20px 48px;
+      transition: background .3s, color .3s;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 20% 0%, rgba(34,197,94,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 100%, rgba(74,222,128,0.05) 0%, transparent 50%);
+    }
+    :root.light body {
+      background-image:
+        radial-gradient(ellipse 60% 40% at 20% 0%, rgba(34,197,94,0.1) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 100%, rgba(22,163,74,0.07) 0%, transparent 50%);
+    }
+    .wrap { max-width: 1280px; margin: 0 auto; }
+
+    /* HEADER */
+    .header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:32px; flex-wrap:wrap; }
+    .header-left { display:flex; align-items:center; gap:16px; }
+    .logo {
+      width:48px; height:48px; border-radius:14px; flex-shrink:0;
+      background: linear-gradient(135deg,#166534,#4ade80);
+      display:flex; align-items:center; justify-content:center; font-size:24px;
+      box-shadow: 0 0 20px rgba(74,222,128,0.25);
+    }
+    .header-title { font-family:var(--display); font-size:1.55rem; font-weight:800; color:var(--green); line-height:1.1; }
+    .header-sub { font-size:0.78rem; color:var(--muted); font-family:var(--mono); margin-top:2px; }
+    .header-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .rtc-box { font-family:var(--mono); font-size:0.88rem; color:var(--text-dim); background:var(--card); border:1px solid var(--border); padding:8px 14px; border-radius:8px; letter-spacing:0.04em; }
+    .rtc-box small { display:block; font-size:0.68rem; color:var(--muted); margin-bottom:1px; }
+    .conn-badge { display:flex; align-items:center; gap:7px; padding:8px 14px; border-radius:8px; font-size:0.78rem; font-weight:600; font-family:var(--mono); border:1px solid; transition:all .3s; }
+    .conn-badge.online  { background:rgba(74,222,128,.1);  border-color:var(--green-dim); color:var(--green); }
+    .conn-badge.offline { background:rgba(248,113,113,.1); border-color:var(--red); color:var(--red); }
+    .dot { width:8px; height:8px; border-radius:50%; background:currentColor; animation:blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+
+    /* ALERT */
+    .alert { display:flex; align-items:center; gap:10px; padding:12px 18px; border-radius:10px; margin-bottom:20px; font-size:.88rem; font-weight:500; border:1px solid; }
+    .alert.hidden { display:none; }
+    .alert.success { background:rgba(74,222,128,.1); border-color:var(--green-dim); color:var(--green); }
+    .alert.error   { background:rgba(248,113,113,.1); border-color:var(--red); color:var(--red); }
+
+    /* SECTION LABEL */
+    .sec { font-family:var(--mono); font-size:.68rem; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:10px; }
+    .sec::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* GRID */
+    .g3  { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:14px; }
+    .g5  { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:14px; }
+    .g2  { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+    .g23 { display:grid; grid-template-columns:2fr 3fr; gap:14px; margin-bottom:14px; }
+
+    /* CARD */
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; position:relative; overflow:hidden; transition:border-color .3s, background .3s; }
+    .card:hover { border-color:var(--border2); }
+    .card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(74,222,128,.025) 0%,transparent 60%); pointer-events:none; }
+
+    /* THEME TOGGLE */
+    .theme-btn { width:38px; height:38px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text-dim); font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
+    .theme-btn:hover { border-color:var(--border2); background:var(--card2); }
+
+    /* ENV CARDS */
+    .env .clabel { font-family:var(--mono); font-size:.66rem; font-weight:500; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .env .val  { font-family:var(--mono); font-size:2.8rem; font-weight:600; line-height:1; color:var(--text); margin-bottom:4px; }
+    .env .val .u { font-size:.9rem; font-weight:400; color:var(--muted); margin-left:3px; }
+    .env .desc { font-size:.75rem; color:var(--muted); font-family:var(--mono); }
+    .env.temp   { border-top:2px solid #f97316; }
+    .env.humid  { border-top:2px solid var(--blue); }
+    .env.lux    { border-top:2px solid var(--amber); }
+
+    /* SOIL CARDS */
+    .soil .snum  { font-family:var(--mono); font-size:.62rem; font-weight:600; letter-spacing:.1em; color:var(--muted); margin-bottom:6px; text-transform:uppercase; }
+    .soil .sval  { font-family:var(--mono); font-size:1.85rem; font-weight:600; line-height:1; color:var(--text); }
+    .soil .sval .u { font-size:.78rem; font-weight:400; color:var(--muted); }
+    .soil .btrack { width:100%; height:4px; background:var(--border); border-radius:3px; margin-top:9px; overflow:hidden; }
+    .soil .bfill  { height:100%; border-radius:3px; transition:width .6s ease; background:linear-gradient(90deg,#16a34a,#4ade80); }
+    .soil .bfill.dry { background:linear-gradient(90deg,#b45309,#fbbf24); }
+    .soil .bfill.wet { background:linear-gradient(90deg,#0369a1,#38bdf8); }
+    .soil .slabel { font-size:.62rem; font-family:var(--mono); margin-top:5px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+
+    /* PUMP CARD */
+    .pump-ring { width:78px; height:78px; border-radius:50%; border:3px solid var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:1.9rem; transition:all .4s; }
+    .pump-ring.idle     { border-color:var(--border2); }
+    .pump-ring.running  { border-color:var(--green); box-shadow:0 0 0 0 rgba(74,222,128,.3); animation:pulsering 1.8s ease-out infinite; }
+    .pump-ring.cooldown { border-color:var(--amber); box-shadow:0 0 16px rgba(251,191,36,.25); }
+    .pump-ring.error    { border-color:var(--red);   box-shadow:0 0 16px rgba(248,113,113,.25); }
+    @keyframes pulsering { 0%{box-shadow:0 0 0 0 rgba(74,222,128,.4)} 70%{box-shadow:0 0 0 12px rgba(74,222,128,0)} 100%{box-shadow:0 0 0 0 rgba(74,222,128,0)} }
+    .pump-lbl { text-align:center; font-family:var(--mono); font-size:.78rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; margin-bottom:4px; }
+    .pump-lbl.idle     { color:var(--muted); }
+    .pump-lbl.running  { color:var(--green); }
+    .pump-lbl.cooldown { color:var(--amber); }
+    .pump-lbl.error    { color:var(--red); }
+    .pump-desc { text-align:center; font-size:.75rem; color:var(--muted); margin-bottom:14px; }
+    .trow { display:flex; align-items:center; justify-content:space-between; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+    .trow .tl { font-size:.72rem; color:var(--muted); font-family:var(--mono); }
+    .trow .tv { font-family:var(--mono); font-weight:600; color:var(--green); font-size:.95rem; }
+
+    /* SCHEDULE CARD */
+    .sched-list { display:flex; flex-direction:column; gap:9px; }
+    .sched-item { display:flex; align-items:center; justify-content:space-between; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:11px 15px; }
+    .sched-n { font-family:var(--mono); font-size:.64rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+    .sched-t { font-family:var(--mono); font-size:1.3rem; font-weight:600; color:var(--text); letter-spacing:.04em; }
+    .sched-s { font-size:.68rem; font-family:var(--mono); color:var(--muted); }
+
+    /* DATA */
+    .dstats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+    .dstat  { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; }
+    .dstat .dv { font-family:var(--mono); font-size:1.35rem; font-weight:600; color:var(--text); line-height:1; margin-bottom:4px; }
+    .dstat .dl { font-size:.65rem; font-family:var(--mono); color:var(--muted); text-transform:uppercase; letter-spacing:.1em; }
+
+    /* CARD HEADER */
+    .chard { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .ctitle { font-family:var(--display); font-size:.95rem; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; }
+
+    /* BUTTONS */
+    .btn { display:inline-flex; align-items:center; gap:7px; padding:10px 17px; border-radius:8px; border:1px solid; font-size:.83rem; font-weight:500; font-family:var(--sans); cursor:pointer; transition:all .2s; }
+    .btn:active { transform:scale(.97); }
+    .btn-p { background:rgba(74,222,128,.12); border-color:var(--green-dim); color:var(--green); }
+    .btn-p:hover { background:rgba(74,222,128,.2); }
+    .btn-d { background:rgba(248,113,113,.1); border-color:#ef4444; color:var(--red); }
+    .btn-d:hover { background:rgba(248,113,113,.2); }
+    .btn-g { background:var(--card2); border-color:var(--border); color:var(--text-dim); }
+    .btn-g:hover { border-color:var(--border2); }
+    .btn-w { background:rgba(251,191,36,.1); border-color:#d97706; color:var(--amber); }
+    .btn-w:hover { background:rgba(251,191,36,.2); }
+    .acts { display:flex; gap:10px; flex-wrap:wrap; }
+
+    /* SETTINGS TABS */
+    .tabs { display:flex; gap:4px; background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:4px; margin-bottom:20px; }
+    .tab  { flex:1; padding:8px 10px; border:none; background:transparent; color:var(--muted); font-size:.75rem; font-weight:500; font-family:var(--mono); border-radius:7px; cursor:pointer; transition:all .2s; letter-spacing:.04em; text-transform:uppercase; }
+    .tab.on { background:var(--card); color:var(--green); border:1px solid var(--border); }
+    .panel { display:none; }
+    .panel.on { display:block; }
+    .fgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+    .fg { display:flex; flex-direction:column; gap:6px; }
+    .fl { font-family:var(--mono); font-size:.68rem; font-weight:500; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+    .fl span { text-transform:none; letter-spacing:0; font-weight:400; }
+    .fi { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--text); font-size:.88rem; font-family:var(--mono); transition:border-color .2s; width:100%; }
+    .fi:focus { outline:none; border-color:var(--green-dim); box-shadow:0 0 0 3px rgba(74,222,128,.08); }
+    .fh { font-size:.7rem; color:var(--muted); }
+    .fax { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+    .div { height:1px; background:var(--border); margin:14px 0; }
+
+    /* LOGS */
+    .logbox { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; max-height:360px; overflow-y:auto; font-family:var(--mono); font-size:.76rem; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+    .logrow { display:flex; gap:12px; align-items:baseline; padding:5px 0; border-bottom:1px solid var(--border); }
+    .logrow:last-child { border-bottom:none; }
+    .logts  { color:var(--muted); flex-shrink:0; font-size:.7rem; }
+    .logmsg { color:var(--text-dim); word-break:break-word; }
+    .logempty { text-align:center; padding:24px; color:var(--muted); }
+
+    /* RESPONSIVE */
+    @media(max-width:1024px){ .g23{grid-template-columns:1fr 1fr;} }
+    @media(max-width:800px) { .g3{grid-template-columns:1fr 1fr;} .g5{grid-template-columns:repeat(2,1fr);} .g2,.g23{grid-template-columns:1fr;} }
+    @media(max-width:520px) { .g3{grid-template-columns:1fr;} .header{flex-direction:column;align-items:flex-start;} .env .val{font-size:2.4rem;} }
+  </style>
 </head>
-
 <body>
-    <div class="wrap">
+<div class="wrap">
 
-        <!-- HEADER -->
-        <header class="header">
-            <div class="header-left">
-                <div class="logo">🌿</div>
-                <div>
-                    <div class="header-title">Smart Nursery</div>
-                    <div class="header-sub">Monitoring &amp; Irrigation Control — ESP32</div>
-                </div>
-            </div>
-            <div class="header-right">
-                <div class="rtc-box">
-                    <small>RTC</small>
-                    <span id="rtcTime">--/--/---- --:--:--</span>
-                </div>
-                <button class="theme-btn" id="themeBtn" onclick="toggleTheme()"
-                    title="Toggle light/dark mode">🌙</button>
-                <div class="conn-badge online" id="connBadge">
-                    <div class="dot"></div>
-                    <span id="connTxt">Online</span>
-                </div>
-            </div>
-        </header>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">🌿</div>
+      <div>
+        <div class="header-title">Smart Nursery</div>
+        <div class="header-sub">Monitoring &amp; Irrigation Control — ESP32</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="rtc-box">
+        <small>RTC</small>
+        <span id="rtcTime">--/--/---- --:--:--</span>
+      </div>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
+      <div class="conn-badge online" id="connBadge">
+        <div class="dot"></div>
+        <span id="connTxt">Online</span>
+      </div>
+    </div>
+  </header>
 
-        <!-- ALERT -->
-        <div class="alert hidden" id="alertBox">
-            <span id="alertIcon">✓</span>
-            <span id="alertMsg"></span>
+  <!-- ALERT -->
+  <div class="alert hidden" id="alertBox">
+    <span id="alertIcon">✓</span>
+    <span id="alertMsg"></span>
+  </div>
+
+  <!-- ENVIRONMENT -->
+  <div class="sec">Environment</div>
+  <div class="g3">
+    <div class="card env temp">
+      <div class="clabel">🌡️ Suhu</div>
+      <div class="val"><span id="temperature">--</span><span class="u">°C</span></div>
+      <div class="desc" id="tempDesc">–</div>
+    </div>
+    <div class="card env humid">
+      <div class="clabel">💧 Kelembaban Udara</div>
+      <div class="val"><span id="humidity">--</span><span class="u">%</span></div>
+      <div class="desc" id="humidDesc">–</div>
+    </div>
+    <div class="card env lux">
+      <div class="clabel">☀️ Intensitas Cahaya</div>
+      <div class="val"><span id="lux">--</span><span class="u">lx</span></div>
+      <div class="desc" id="luxDesc">–</div>
+    </div>
+  </div>
+
+  <!-- SOIL MOISTURE (10 sensors) -->
+  <div class="sec">Kelembaban Tanah</div>
+  <div class="g5">
+    <div class="card soil"><div class="snum">Sensor 01</div><div class="sval"><span id="sm1">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar1" style="width:0%"></div></div><div class="slabel" id="sl1">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 02</div><div class="sval"><span id="sm2">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar2" style="width:0%"></div></div><div class="slabel" id="sl2">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 03</div><div class="sval"><span id="sm3">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar3" style="width:0%"></div></div><div class="slabel" id="sl3">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 04</div><div class="sval"><span id="sm4">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar4" style="width:0%"></div></div><div class="slabel" id="sl4">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 05</div><div class="sval"><span id="sm5">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar5" style="width:0%"></div></div><div class="slabel" id="sl5">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 06</div><div class="sval"><span id="sm6">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar6" style="width:0%"></div></div><div class="slabel" id="sl6">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 07</div><div class="sval"><span id="sm7">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar7" style="width:0%"></div></div><div class="slabel" id="sl7">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 08</div><div class="sval"><span id="sm8">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar8" style="width:0%"></div></div><div class="slabel" id="sl8">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 09</div><div class="sval"><span id="sm9">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar9" style="width:0%"></div></div><div class="slabel" id="sl9">–</div></div>
+    <div class="card soil"><div class="snum">Sensor 10</div><div class="sval"><span id="sm10">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar10" style="width:0%"></div></div><div class="slabel" id="sl10">–</div></div>
+  </div>
+
+  <!-- PUMP + SCHEDULE -->
+  <div class="sec">Pompa &amp; Jadwal</div>
+  <div class="g23">
+
+    <div class="card">
+      <div class="chard">
+        <div class="ctitle">⚙️ Status Pompa</div>
+      </div>
+      <div class="pump-ring idle" id="pumpRing"><span id="pumpEmoji">⏸</span></div>
+      <div class="pump-lbl idle" id="pumpLbl">IDLE</div>
+      <div class="pump-desc" id="pumpDesc">Sistem standby</div>
+      <div class="trow">
+        <span class="tl">THRESHOLD</span>
+        <span class="tv"><span id="thresholdVal">--</span>%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="chard">
+        <div class="ctitle">🕐 Jadwal Penyiraman</div>
+      </div>
+      <div class="sched-list">
+        <div class="sched-item">
+          <div><div class="sched-n">Jadwal 1</div><div class="sched-t" id="sched1">--:--</div></div>
+          <div class="sched-s" id="schedSec1">–</div>
         </div>
-
-        <!-- ENVIRONMENT -->
-        <div class="sec">Environment</div>
-        <div class="g3">
-            <div class="card env temp">
-                <div class="clabel">🌡️ Suhu</div>
-                <div class="val"><span id="temperature">--</span><span class="u">°C</span></div>
-                <div class="desc" id="tempDesc">–</div>
-            </div>
-            <div class="card env humid">
-                <div class="clabel">💧 Kelembaban Udara</div>
-                <div class="val"><span id="humidity">--</span><span class="u">%</span></div>
-                <div class="desc" id="humidDesc">–</div>
-            </div>
-            <div class="card env lux">
-                <div class="clabel">☀️ Intensitas Cahaya</div>
-                <div class="val"><span id="lux">--</span><span class="u">lx</span></div>
-                <div class="desc" id="luxDesc">–</div>
-            </div>
+        <div class="sched-item">
+          <div><div class="sched-n">Jadwal 2</div><div class="sched-t" id="sched2">--:--</div></div>
+          <div class="sched-s" id="schedSec2">–</div>
         </div>
+      </div>
+      <div class="div"></div>
+      <p style="font-size:.75rem;color:var(--muted);font-family:var(--mono);">Pompa aktif otomatis sesuai jadwal jika kelembaban &lt; threshold</p>
+    </div>
 
-        <!-- SOIL MOISTURE (10 sensors) -->
-        <div class="sec">Kelembaban Tanah</div>
-        <div class="g5">
-            <div class="card soil">
-                <div class="snum">Sensor 01</div>
-                <div class="sval"><span id="sm1">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar1" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl1">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 02</div>
-                <div class="sval"><span id="sm2">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar2" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl2">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 03</div>
-                <div class="sval"><span id="sm3">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar3" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl3">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 04</div>
-                <div class="sval"><span id="sm4">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar4" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl4">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 05</div>
-                <div class="sval"><span id="sm5">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar5" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl5">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 06</div>
-                <div class="sval"><span id="sm6">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar6" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl6">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 07</div>
-                <div class="sval"><span id="sm7">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar7" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl7">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 08</div>
-                <div class="sval"><span id="sm8">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar8" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl8">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 09</div>
-                <div class="sval"><span id="sm9">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar9" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl9">–</div>
-            </div>
-            <div class="card soil">
-                <div class="snum">Sensor 10</div>
-                <div class="sval"><span id="sm10">--</span><span class="u">%</span></div>
-                <div class="btrack">
-                    <div class="bfill" id="bar10" style="width:0%"></div>
-                </div>
-                <div class="slabel" id="sl10">–</div>
-            </div>
+  </div>
+
+  <!-- DATA MANAGEMENT -->
+  <div class="sec">Data Log</div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="chard">
+      <div class="ctitle">📊 Manajemen Data CSV</div>
+    </div>
+    <div class="dstats">
+      <div class="dstat"><div class="dv" id="dataRecords">--</div><div class="dl">Records</div></div>
+      <div class="dstat"><div class="dv" id="dataSize">--</div><div class="dl">File Size</div></div>
+      <div class="dstat"><div class="dv" id="nextLog">--</div><div class="dl">Next Log</div></div>
+    </div>
+    <div class="acts">
+      <button class="btn btn-p" onclick="downloadData()">📥 Download CSV</button>
+      <button class="btn btn-d" onclick="deleteData()">🗑 Hapus Semua Data</button>
+    </div>
+  </div>
+
+  <!-- RTC SET DATETIME -->
+  <div class="sec">Waktu Sistem</div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="chard">
+      <div class="ctitle">🕰️ Update Tanggal &amp; Waktu RTC</div>
+    </div>
+    <div class="fgrid">
+      <div class="fg">
+        <div class="fl">Tanggal</div>
+        <input type="date" id="rtcDate" class="fi">
+        <div class="fh">Tanggal yang akan diset ke RTC</div>
+      </div>
+      <div class="fg">
+        <div class="fl">Waktu</div>
+        <input type="time" id="rtcTimeInput" class="fi" step="1">
+        <div class="fh">Jam:menit:detik yang akan diset ke RTC</div>
+      </div>
+      <div class="fg" style="justify-content:flex-end">
+        <button class="btn btn-g" onclick="fillNow()" style="margin-bottom:8px">⟳ Pakai Waktu Sekarang</button>
+        <button class="btn btn-p" onclick="setDateTime()">💾 Update RTC</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="sec">Pengaturan</div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="tabs">
+      <button class="tab on" onclick="swTab('jadwal',this)">Jadwal</button>
+      <button class="tab"    onclick="swTab('pompa',this)">Sensor &amp; Pompa</button>
+      <button class="tab"    onclick="swTab('kalib',this)">Kalibrasi</button>
+    </div>
+
+    <!-- Tab: Jadwal -->
+    <div class="panel on" id="panel-jadwal">
+      <div class="fgrid">
+        <div class="fg">
+          <div class="fl">Jadwal 1 <span>jam:menit</span></div>
+          <input type="time" id="irrigationTime1" class="fi" value="07:00">
+          <div class="fh">Waktu penyiraman pertama setiap hari</div>
         </div>
-
-        <!-- PUMP + SCHEDULE -->
-        <div class="sec">Pompa &amp; Jadwal</div>
-        <div class="g23">
-
-            <div class="card">
-                <div class="chard">
-                    <div class="ctitle">⚙️ Status Pompa</div>
-                </div>
-                <div class="pump-ring idle" id="pumpRing"><span id="pumpEmoji">⏸</span></div>
-                <div class="pump-lbl idle" id="pumpLbl">IDLE</div>
-                <div class="pump-desc" id="pumpDesc">Sistem standby</div>
-                <div class="trow">
-                    <span class="tl">THRESHOLD</span>
-                    <span class="tv"><span id="thresholdVal">--</span>%</span>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="chard">
-                    <div class="ctitle">🕐 Jadwal Penyiraman</div>
-                </div>
-                <div class="sched-list">
-                    <div class="sched-item">
-                        <div>
-                            <div class="sched-n">Jadwal 1</div>
-                            <div class="sched-t" id="sched1">--:--</div>
-                        </div>
-                        <div class="sched-s" id="schedSec1">–</div>
-                    </div>
-                    <div class="sched-item">
-                        <div>
-                            <div class="sched-n">Jadwal 2</div>
-                            <div class="sched-t" id="sched2">--:--</div>
-                        </div>
-                        <div class="sched-s" id="schedSec2">–</div>
-                    </div>
-                </div>
-                <div class="div"></div>
-                <p style="font-size:.75rem;color:var(--muted);font-family:var(--mono);">Pompa aktif otomatis sesuai
-                    jadwal jika kelembaban &lt; threshold</p>
-            </div>
-
+        <div class="fg">
+          <div class="fl">Detik Jadwal 1</div>
+          <input type="number" id="irrigationSecond1" class="fi" min="0" max="59" value="0">
+          <div class="fh">Detik tepat pompa menyala (0–59)</div>
         </div>
-
-        <!-- DATA MANAGEMENT -->
-        <div class="sec">Data Log</div>
-        <div class="card" style="margin-bottom:14px">
-            <div class="chard">
-                <div class="ctitle">📊 Manajemen Data CSV</div>
-            </div>
-            <div class="dstats">
-                <div class="dstat">
-                    <div class="dv" id="dataRecords">--</div>
-                    <div class="dl">Records</div>
-                </div>
-                <div class="dstat">
-                    <div class="dv" id="dataSize">--</div>
-                    <div class="dl">File Size</div>
-                </div>
-                <div class="dstat">
-                    <div class="dv" id="nextLog">--</div>
-                    <div class="dl">Next Log</div>
-                </div>
-            </div>
-            <div class="acts">
-                <button class="btn btn-p" onclick="downloadData()">📥 Download CSV</button>
-                <button class="btn btn-d" onclick="deleteData()">🗑 Hapus Semua Data</button>
-            </div>
+        <div class="fg">
+          <div class="fl">Jadwal 2 <span>jam:menit</span></div>
+          <input type="time" id="irrigationTime2" class="fi" value="16:00">
+          <div class="fh">Waktu penyiraman kedua setiap hari</div>
         </div>
-
-        <!-- SETTINGS -->
-        <div class="sec">Pengaturan</div>
-        <div class="card" style="margin-bottom:14px">
-            <div class="tabs">
-                <button class="tab on" onclick="swTab('jadwal',this)">Jadwal</button>
-                <button class="tab" onclick="swTab('pompa',this)">Sensor &amp; Pompa</button>
-                <button class="tab" onclick="swTab('kalib',this)">Kalibrasi</button>
-            </div>
-
-            <!-- Tab: Jadwal -->
-            <div class="panel on" id="panel-jadwal">
-                <div class="fgrid">
-                    <div class="fg">
-                        <div class="fl">Jadwal 1 <span>jam:menit</span></div>
-                        <input type="time" id="irrigationTime1" class="fi" value="07:00">
-                        <div class="fh">Waktu penyiraman pertama setiap hari</div>
-                    </div>
-                    <div class="fg">
-                        <div class="fl">Detik Jadwal 1</div>
-                        <input type="number" id="irrigationSecond1" class="fi" min="0" max="59" value="0">
-                        <div class="fh">Detik tepat pompa menyala (0–59)</div>
-                    </div>
-                    <div class="fg">
-                        <div class="fl">Jadwal 2 <span>jam:menit</span></div>
-                        <input type="time" id="irrigationTime2" class="fi" value="16:00">
-                        <div class="fh">Waktu penyiraman kedua setiap hari</div>
-                    </div>
-                    <div class="fg">
-                        <div class="fl">Detik Jadwal 2</div>
-                        <input type="number" id="irrigationSecond2" class="fi" min="0" max="59" value="0">
-                        <div class="fh">Detik tepat pompa menyala (0–59)</div>
-                    </div>
-                </div>
-                <div class="fax">
-                    <button class="btn btn-p" onclick="saveSettings()">💾 Simpan Jadwal</button>
-                </div>
-            </div>
-
-            <!-- Tab: Sensor & Pompa -->
-            <div class="panel" id="panel-pompa">
-                <div class="fgrid">
-                    <div class="fg">
-                        <div class="fl">Threshold Kelembaban <span>(%)</span></div>
-                        <input type="number" id="threshold" class="fi" min="0" max="100" value="60">
-                        <div class="fh">Pompa aktif jika kelembaban &lt; nilai ini</div>
-                    </div>
-                    <div class="fg">
-                        <div class="fl">Durasi Pompa <span>(detik)</span></div>
-                        <input type="number" id="pumpDuration" class="fi" min="1" max="600" value="60">
-                        <div class="fh">Lama pompa menyala setiap siklus</div>
-                    </div>
-                    <div class="fg">
-                        <div class="fl">Interval Pengukuran <span>(detik)</span></div>
-                        <input type="number" id="measurementInterval" class="fi" min="2" max="3600" value="1800">
-                        <div class="fh">Seberapa sering sensor membaca data</div>
-                    </div>
-                    <div class="fg">
-                        <div class="fl">Interval Log Data <span>(detik)</span></div>
-                        <input type="number" id="dataLogInterval" class="fi" min="60" max="3600" value="1800">
-                        <div class="fh">Interval simpan ke CSV (60–3600 dtk)</div>
-                    </div>
-                </div>
-                <div class="fax">
-                    <button class="btn btn-p" onclick="saveSettings()">💾 Simpan Pengaturan</button>
-                </div>
-            </div>
-
-            <!-- Tab: Kalibrasi -->
-            <div class="panel" id="panel-kalib">
-                <div class="fgrid">
-                    <div class="fg">
-                        <div class="fl">ADC Kering <span>(dry)</span></div>
-                        <input type="number" id="dry" class="fi" value="2662">
-                        <div class="fh">Nilai ADC sensor di udara (kering) — default 2662</div>
-                    </div>
-                    <div class="fg">
-                        <div class="fl">ADC Basah <span>(wet)</span></div>
-                        <input type="number" id="wet" class="fi" value="1269">
-                        <div class="fh">Nilai ADC sensor di air (basah) — default 1269</div>
-                    </div>
-                </div>
-                <p style="font-size:.73rem;color:var(--muted);font-family:var(--mono);margin-top:14px;">
-                    Rumus: <code
-                        style="color:var(--text-dim)">pct = map(constrain(raw, wet, dry), wet, dry, 0, 100)</code>
-                </p>
-                <div class="fax">
-                    <button class="btn btn-p" onclick="saveSettings()">💾 Simpan Kalibrasi</button>
-                </div>
-            </div>
-
-            <div class="div"></div>
-            <button class="btn btn-w" onclick="restartSystem()">🔄 Restart Sistem</button>
+        <div class="fg">
+          <div class="fl">Detik Jadwal 2</div>
+          <input type="number" id="irrigationSecond2" class="fi" min="0" max="59" value="0">
+          <div class="fh">Detik tepat pompa menyala (0–59)</div>
         </div>
+      </div>
+      <div class="fax">
+        <button class="btn btn-p" onclick="saveSettings()">💾 Simpan Jadwal</button>
+      </div>
+    </div>
 
-        <!-- LOGS -->
-        <div class="sec">Log Aktivitas</div>
-        <div class="card">
-            <div class="chard">
-                <div class="ctitle">📋 Serial Log</div>
-                <button class="btn btn-g" onclick="fetchLogs()" style="padding:6px 12px;font-size:.75rem;">↻
-                    Refresh</button>
-            </div>
-            <div class="logbox" id="logbox">
-                <div class="logempty">Memuat log…</div>
-            </div>
+    <!-- Tab: Sensor & Pompa -->
+    <div class="panel" id="panel-pompa">
+      <div class="fgrid">
+        <div class="fg">
+          <div class="fl">Threshold Kelembaban <span>(%)</span></div>
+          <input type="number" id="threshold" class="fi" min="0" max="100" value="60">
+          <div class="fh">Pompa aktif jika kelembaban &lt; nilai ini</div>
         </div>
+        <div class="fg">
+          <div class="fl">Durasi Pompa <span>(detik)</span></div>
+          <input type="number" id="pumpDuration" class="fi" min="1" max="600" value="60">
+          <div class="fh">Lama pompa menyala setiap siklus</div>
+        </div>
+        <div class="fg">
+          <div class="fl">Interval Pengukuran <span>(detik)</span></div>
+          <input type="number" id="measurementInterval" class="fi" min="2" max="3600" value="1800">
+          <div class="fh">Seberapa sering sensor membaca data</div>
+        </div>
+        <div class="fg">
+          <div class="fl">Interval Log Data <span>(detik)</span></div>
+          <input type="number" id="dataLogInterval" class="fi" min="60" max="3600" value="1800">
+          <div class="fh">Interval simpan ke CSV (60–3600 dtk)</div>
+        </div>
+      </div>
+      <div class="fax">
+        <button class="btn btn-p" onclick="saveSettings()">💾 Simpan Pengaturan</button>
+      </div>
+    </div>
 
-    </div><!-- /wrap -->
+    <!-- Tab: Kalibrasi -->
+    <div class="panel" id="panel-kalib">
+      <div class="fgrid">
+        <div class="fg">
+          <div class="fl">ADC Kering <span>(dry)</span></div>
+          <input type="number" id="dry" class="fi" value="2662">
+          <div class="fh">Nilai ADC sensor di udara (kering) — default 2662</div>
+        </div>
+        <div class="fg">
+          <div class="fl">ADC Basah <span>(wet)</span></div>
+          <input type="number" id="wet" class="fi" value="1269">
+          <div class="fh">Nilai ADC sensor di air (basah) — default 1269</div>
+        </div>
+      </div>
+      <p style="font-size:.73rem;color:var(--muted);font-family:var(--mono);margin-top:14px;">
+        Rumus: <code style="color:var(--text-dim)">pct = map(constrain(raw, wet, dry), wet, dry, 0, 100)</code>
+      </p>
+      <div class="fax">
+        <button class="btn btn-p" onclick="saveSettings()">💾 Simpan Kalibrasi</button>
+      </div>
+    </div>
 
-    <script>
-        // ─────────────────────────────────
-        // THEME
-        // ─────────────────────────────────
-        function toggleTheme() {
-            const isLight = document.documentElement.classList.toggle('light');
-            document.getElementById('themeBtn').textContent = isLight ? '🌙' : '☀️';
-            localStorage.setItem('nursery-theme', isLight ? 'light' : 'dark');
-        }
+    <div class="div"></div>
+    <button class="btn btn-w" onclick="restartSystem()">🔄 Restart Sistem</button>
+  </div>
 
-        // Apply saved theme immediately
-        (function () {
-            const saved = localStorage.getItem('nursery-theme');
-            if (saved === 'light') {
-                document.documentElement.classList.add('light');
-                document.addEventListener('DOMContentLoaded', () => {
-                    document.getElementById('themeBtn').textContent = '☀️';
-                });
-            }
-        })();
+  <!-- LOGS -->
+  <div class="sec">Log Aktivitas</div>
+  <div class="card">
+    <div class="chard">
+      <div class="ctitle">📋 Serial Log</div>
+      <button class="btn btn-g" onclick="fetchLogs()" style="padding:6px 12px;font-size:.75rem;">↻ Refresh</button>
+    </div>
+    <div class="logbox" id="logbox">
+      <div class="logempty">Memuat log…</div>
+    </div>
+  </div>
 
-        // ─────────────────────────────────
-        // STATE
-        // ─────────────────────────────────
-        let threshold = 60;
-        let rtcMs = null, rtcFetchedAt = null;
+</div><!-- /wrap -->
 
-        // ─────────────────────────────────
-        // HELPERS
-        // ─────────────────────────────────
-        const pad = n => String(n).padStart(2, '0');
+<script>
+  // ─────────────────────────────────
+  // THEME
+  // ─────────────────────────────────
+  function toggleTheme() {
+    const isLight = document.documentElement.classList.toggle('light');
+    document.getElementById('themeBtn').textContent = isLight ? '🌙' : '☀️';
+    localStorage.setItem('nursery-theme', isLight ? 'light' : 'dark');
+  }
 
-        function showAlert(msg, type = 'success') {
-            const box = document.getElementById('alertBox');
-            document.getElementById('alertIcon').textContent = type === 'success' ? '✓' : '✗';
-            document.getElementById('alertMsg').textContent = msg;
-            box.className = 'alert ' + type;
-            clearTimeout(showAlert._t);
-            showAlert._t = setTimeout(() => box.classList.add('hidden'), 5000);
-        }
+  // Apply saved theme immediately
+  (function() {
+    const saved = localStorage.getItem('nursery-theme');
+    if (saved === 'light') {
+      document.documentElement.classList.add('light');
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('themeBtn').textContent = '☀️';
+      });
+    }
+  })();
 
-        function swTab(name, btn) {
-            document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
-            btn.classList.add('on');
-            document.getElementById('panel-' + name).classList.add('on');
-        }
+  // ─────────────────────────────────
+  // STATE
+  // ─────────────────────────────────
+  let threshold = 60;
+  let rtcMs = null, rtcFetchedAt = null;
 
-        function escHtml(s) {
-            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
+  // ─────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────
+  const pad = n => String(n).padStart(2,'0');
 
-        function millisToHMS(ms) {
-            const s = Math.floor(ms / 1000);
-            return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor((s % 3600) / 60)) + ':' + pad(s % 60);
-        }
+  function showAlert(msg, type='success') {
+    const box = document.getElementById('alertBox');
+    document.getElementById('alertIcon').textContent = type === 'success' ? '✓' : '✗';
+    document.getElementById('alertMsg').textContent = msg;
+    box.className = 'alert ' + type;
+    clearTimeout(showAlert._t);
+    showAlert._t = setTimeout(() => box.classList.add('hidden'), 5000);
+  }
 
-        function soilClass(v) { return v < 30 ? 'dry' : v > 70 ? 'wet' : ''; }
-        function soilText(v) { return v < 30 ? 'Kering' : v < 60 ? 'Normal' : v < 80 ? 'Lembap' : 'Sangat Basah'; }
+  function swTab(name, btn) {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    btn.classList.add('on');
+    document.getElementById('panel-' + name).classList.add('on');
+  }
 
-        function updateSoil(i, val) {
-            if (val === undefined || val === null) return;
-            document.getElementById('sm' + i).textContent = val;
-            const bar = document.getElementById('bar' + i);
-            bar.style.width = Math.min(100, Math.max(0, val)) + '%';
-            bar.className = 'bfill ' + soilClass(val);
-            document.getElementById('sl' + i).textContent = soilText(val);
-            // amber border when dry
-            bar.closest('.card').style.borderColor = val < threshold ? 'rgba(251,191,36,0.4)' : '';
-        }
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 
-        // ─────────────────────────────────
-        // RTC CLOCK (local increment)
-        // ─────────────────────────────────
-        async function syncRTC() {
-            try {
-                const r = await fetch('/datetime');
-                const d = await r.json();
-                rtcMs = new Date(d.date + 'T' + d.time).getTime();
-                rtcFetchedAt = Date.now();
-            } catch (e) { }
-        }
+  function millisToHMS(ms) {
+    const s = Math.floor(ms / 1000);
+    return pad(Math.floor(s/3600)) + ':' + pad(Math.floor((s%3600)/60)) + ':' + pad(s%60);
+  }
 
-        setInterval(() => {
-            if (rtcMs === null) return;
-            const now = new Date(rtcMs + (Date.now() - rtcFetchedAt));
-            document.getElementById('rtcTime').textContent =
-                now.getFullYear() + '/' + pad(now.getMonth() + 1) + '/' + pad(now.getDate()) +
-                '  ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-        }, 1000);
+  function soilClass(v) { return v < 30 ? 'dry' : v > 70 ? 'wet' : ''; }
+  function soilText(v)  { return v < 30 ? 'Kering' : v < 60 ? 'Normal' : v < 80 ? 'Lembap' : 'Sangat Basah'; }
 
-        // ─────────────────────────────────
-        // /status
-        // ─────────────────────────────────
-        async function fetchStatus() {
-            try {
-                const d = await fetch('/status').then(r => r.json());
+  function updateSoil(i, val) {
+    if (val === undefined || val === null) return;
+    document.getElementById('sm'  + i).textContent  = val;
+    const bar = document.getElementById('bar' + i);
+    bar.style.width = Math.min(100, Math.max(0, val)) + '%';
+    bar.className   = 'bfill ' + soilClass(val);
+    document.getElementById('sl'  + i).textContent  = soilText(val);
+    // amber border when dry
+    bar.closest('.card').style.borderColor = val < threshold ? 'rgba(251,191,36,0.4)' : '';
+  }
 
-                // Temperature
-                const t = parseFloat(d.temperature);
-                document.getElementById('temperature').textContent = isNaN(t) ? '--' : t.toFixed(1);
-                document.getElementById('tempDesc').textContent =
-                    isNaN(t) ? '–' : t < 18 ? 'Dingin' : t < 28 ? 'Normal' : t < 35 ? 'Hangat' : 'Panas';
+  // ─────────────────────────────────
+  // RTC CLOCK (local increment)
+  // ─────────────────────────────────
+  async function syncRTC() {
+    try {
+      const r = await fetch('/datetime');
+      const d = await r.json();
+      rtcMs = new Date(d.date + 'T' + d.time).getTime();
+      rtcFetchedAt = Date.now();
+    } catch(e) {}
+  }
 
-                // Humidity
-                const h = parseFloat(d.humidity);
-                document.getElementById('humidity').textContent = isNaN(h) ? '--' : h.toFixed(1);
-                document.getElementById('humidDesc').textContent =
-                    isNaN(h) ? '–' : h < 30 ? 'Kering' : h < 60 ? 'Normal' : h < 80 ? 'Lembap' : 'Sangat Lembap';
+  setInterval(() => {
+    if (rtcMs === null) return;
+    const now = new Date(rtcMs + (Date.now() - rtcFetchedAt));
+    document.getElementById('rtcTime').textContent =
+      now.getFullYear() + '/' + pad(now.getMonth()+1) + '/' + pad(now.getDate()) +
+      '  ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  }, 1000);
 
-                // Lux — not in /status yet; shows '--' until handleStatus() is updated
-                document.getElementById('lux').textContent = d.lux !== undefined ? Math.round(d.lux) : '--';
+  // ─────────────────────────────────
+  // /status
+  // ─────────────────────────────────
+  async function fetchStatus() {
+    try {
+      const d = await fetch('/status').then(r => r.json());
 
-                // Threshold
-                threshold = d.threshold ?? threshold;
-                document.getElementById('thresholdVal').textContent = d.threshold ?? '--';
+      // Temperature
+      const t = parseFloat(d.temperature);
+      document.getElementById('temperature').textContent = isNaN(t) ? '--' : t.toFixed(1);
+      document.getElementById('tempDesc').textContent =
+        isNaN(t) ? '–' : t<18?'Dingin':t<28?'Normal':t<35?'Hangat':'Panas';
 
-                // Soil 1-4 (from /status); 5-10 need backend update in handleStatus()
-                for (let i = 1; i <= 10; i++) updateSoil(i, d['soilMoisture' + i]);
+      // Humidity
+      const h = parseFloat(d.humidity);
+      document.getElementById('humidity').textContent = isNaN(h) ? '--' : h.toFixed(1);
+      document.getElementById('humidDesc').textContent =
+        isNaN(h) ? '–' : h<30?'Kering':h<60?'Normal':h<80?'Lembap':'Sangat Lembap';
 
-                // Pump
-                const pumpMap = {
-                    0: { cls: 'idle', em: '⏸', lbl: 'IDLE', dsc: 'Sistem standby' },
-                    1: { cls: 'running', em: '💦', lbl: 'RUNNING', dsc: 'Sedang menyiram...' },
-                    2: { cls: 'cooldown', em: '⏳', lbl: 'COOLDOWN', dsc: 'Menunggu sebelum kembali' },
-                    3: { cls: 'error', em: '⚠️', lbl: 'ERROR', dsc: 'Cek pompa &amp; relay' },
-                };
-                const ps = pumpMap[d.pumpState] ?? pumpMap[0];
-                document.getElementById('pumpRing').className = 'pump-ring ' + ps.cls;
-                document.getElementById('pumpLbl').className = 'pump-lbl ' + ps.cls;
-                document.getElementById('pumpLbl').textContent = ps.lbl;
-                document.getElementById('pumpDesc').innerHTML = ps.dsc;
-                document.getElementById('pumpEmoji').textContent = ps.em;
+      // Lux — not in /status yet; shows '--' until handleStatus() is updated
+      document.getElementById('lux').textContent = d.lux !== undefined ? Math.round(d.lux) : '--';
 
-                // Schedule display
-                if (d.irrigationHour1 !== undefined)
-                    document.getElementById('sched1').textContent = pad(d.irrigationHour1) + ':' + pad(d.irrigationMinute1);
-                if (d.irrigationHour2 !== undefined)
-                    document.getElementById('sched2').textContent = pad(d.irrigationHour2) + ':' + pad(d.irrigationMinute2);
+      // Threshold
+      threshold = d.threshold ?? threshold;
+      document.getElementById('thresholdVal').textContent = d.threshold ?? '--';
 
-                // Connection
-                const cb = document.getElementById('connBadge');
-                cb.className = 'conn-badge online';
-                document.getElementById('connTxt').textContent = 'Online';
+      // Soil 1-4 (from /status); 5-10 need backend update in handleStatus()
+      for (let i = 1; i <= 10; i++) updateSoil(i, d['soilMoisture' + i]);
 
-            } catch (e) {
-                const cb = document.getElementById('connBadge');
-                cb.className = 'conn-badge offline';
-                document.getElementById('connTxt').textContent = 'Offline';
-            }
-        }
+      // Pump
+      const pumpMap = {
+        0: { cls:'idle',     em:'⏸', lbl:'IDLE',     dsc:'Sistem standby'           },
+        1: { cls:'running',  em:'💦', lbl:'RUNNING',  dsc:'Sedang menyiram...'       },
+        2: { cls:'cooldown', em:'⏳', lbl:'COOLDOWN', dsc:'Menunggu sebelum kembali'  },
+        3: { cls:'error',    em:'⚠️', lbl:'ERROR',    dsc:'Cek pompa &amp; relay'    },
+      };
+      const ps = pumpMap[d.pumpState] ?? pumpMap[0];
+      document.getElementById('pumpRing').className  = 'pump-ring '  + ps.cls;
+      document.getElementById('pumpLbl').className   = 'pump-lbl '   + ps.cls;
+      document.getElementById('pumpLbl').textContent = ps.lbl;
+      document.getElementById('pumpDesc').innerHTML  = ps.dsc;
+      document.getElementById('pumpEmoji').textContent = ps.em;
 
-        // ─────────────────────────────────
-        // /config
-        // ─────────────────────────────────
-        async function fetchConfig() {
-            try {
-                const d = await fetch('/config').then(r => r.json());
+      // Schedule display
+      if (d.irrigationHour1 !== undefined)
+        document.getElementById('sched1').textContent = pad(d.irrigationHour1)+':'+pad(d.irrigationMinute1);
+      if (d.irrigationHour2 !== undefined)
+        document.getElementById('sched2').textContent = pad(d.irrigationHour2)+':'+pad(d.irrigationMinute2);
 
-                document.getElementById('threshold').value = d.threshold ?? 60;
-                document.getElementById('pumpDuration').value = (d.pumpDuration ?? 60000) / 1000;
-                document.getElementById('measurementInterval').value = (d.measurementInterval ?? 3600000) / 1000;
-                document.getElementById('dataLogInterval').value = (d.dataLogInterval ?? 3600000) / 1000;
-                document.getElementById('dry').value = d.dry ?? 2662;
-                document.getElementById('wet').value = d.wet ?? 1269;
+      // Connection
+      const cb = document.getElementById('connBadge');
+      cb.className = 'conn-badge online';
+      document.getElementById('connTxt').textContent = 'Online';
 
-                document.getElementById('irrigationTime1').value = pad(d.irrigationHour1 ?? 7) + ':' + pad(d.irrigationMinute1 ?? 0);
-                document.getElementById('irrigationSecond1').value = d.irrigationSecond1 ?? 0;
-                document.getElementById('irrigationTime2').value = pad(d.irrigationHour2 ?? 16) + ':' + pad(d.irrigationMinute2 ?? 0);
-                document.getElementById('irrigationSecond2').value = d.irrigationSecond2 ?? 0;
+    } catch(e) {
+      const cb = document.getElementById('connBadge');
+      cb.className = 'conn-badge offline';
+      document.getElementById('connTxt').textContent = 'Offline';
+    }
+  }
 
-                // Also update schedule secondary label (seconds)
-                document.getElementById('schedSec1').textContent = ':' + pad(d.irrigationSecond1 ?? 0) + 's';
-                document.getElementById('schedSec2').textContent = ':' + pad(d.irrigationSecond2 ?? 0) + 's';
+  // ─────────────────────────────────
+  // /config
+  // ─────────────────────────────────
+  async function fetchConfig() {
+    try {
+      const d = await fetch('/config').then(r => r.json());
 
-            } catch (e) { console.error('fetchConfig:', e); }
-        }
+      document.getElementById('threshold').value          = d.threshold          ?? 60;
+      document.getElementById('pumpDuration').value       = (d.pumpDuration      ?? 60000) / 1000;
+      document.getElementById('measurementInterval').value = (d.measurementInterval ?? 3600000) / 1000;
+      document.getElementById('dataLogInterval').value    = (d.dataLogInterval   ?? 3600000) / 1000;
+      document.getElementById('dry').value                = d.dry ?? 2662;
+      document.getElementById('wet').value                = d.wet ?? 1269;
 
-        // ─────────────────────────────────
-        // POST /settings
-        // ─────────────────────────────────
-        async function saveSettings() {
-            const t1 = (document.getElementById('irrigationTime1').value || '07:00').split(':');
-            const t2 = (document.getElementById('irrigationTime2').value || '16:00').split(':');
+      document.getElementById('irrigationTime1').value   = pad(d.irrigationHour1??7)+':'+pad(d.irrigationMinute1??0);
+      document.getElementById('irrigationSecond1').value = d.irrigationSecond1 ?? 0;
+      document.getElementById('irrigationTime2').value   = pad(d.irrigationHour2??16)+':'+pad(d.irrigationMinute2??0);
+      document.getElementById('irrigationSecond2').value = d.irrigationSecond2 ?? 0;
 
-            // pumpDuration: backend stores ms directly (no server-side multiply)
-            // measurementInterval / dataLogInterval: backend does seconds * 1000
-            const params = new URLSearchParams({
-                threshold: document.getElementById('threshold').value,
-                pumpDuration: parseInt(document.getElementById('pumpDuration').value) * 1000,
-                measurementInterval: document.getElementById('measurementInterval').value,
-                dataLogInterval: document.getElementById('dataLogInterval').value,
-                dry: document.getElementById('dry').value,
-                wet: document.getElementById('wet').value,
-                irrigationHour1: parseInt(t1[0]),
-                irrigationMinute1: parseInt(t1[1]),
-                irrigationSecond1: document.getElementById('irrigationSecond1').value,
-                irrigationHour2: parseInt(t2[0]),
-                irrigationMinute2: parseInt(t2[1]),
-                irrigationSecond2: document.getElementById('irrigationSecond2').value,
-            });
+      // Also update schedule secondary label (seconds)
+      document.getElementById('schedSec1').textContent = ':' + pad(d.irrigationSecond1??0) + 's';
+      document.getElementById('schedSec2').textContent = ':' + pad(d.irrigationSecond2??0) + 's';
 
-            try {
-                const r = await fetch('/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: params,
-                });
-                if (r.ok) {
-                    showAlert('Pengaturan berhasil disimpan!', 'success');
-                    setTimeout(() => { fetchStatus(); fetchConfig(); }, 800);
-                } else {
-                    showAlert('Gagal menyimpan pengaturan', 'error');
-                }
-            } catch (e) { showAlert('Error: ' + e.message, 'error'); }
-        }
+    } catch(e) { console.error('fetchConfig:', e); }
+  }
 
-        // ─────────────────────────────────
-        // /data/*
-        // ─────────────────────────────────
-        async function fetchDataInfo() {
-            try {
-                const d = await fetch('/data/info').then(r => r.json());
-                document.getElementById('dataRecords').textContent = d.records ?? 0;
-                document.getElementById('dataSize').textContent = d.size ? (d.size / 1024).toFixed(1) + ' KB' : '0 KB';
-                if (d.nextLogSeconds !== undefined) {
-                    const m = Math.floor(d.nextLogSeconds / 60);
-                    const s = d.nextLogSeconds % 60;
-                    document.getElementById('nextLog').textContent = m + 'm ' + pad(s) + 's';
-                } else {
-                    document.getElementById('nextLog').textContent = '--';
-                }
-            } catch (e) { }
-        }
+  // ─────────────────────────────────
+  // SET RTC DATETIME
+  // ─────────────────────────────────
+  function fillNow() {
+    const now = new Date();
+    document.getElementById('rtcDate').value =
+      now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate());
+    document.getElementById('rtcTimeInput').value =
+      pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  }
 
-        async function downloadData() {
-            try {
-                const r = await fetch('/data/download');
-                if (!r.ok) { showAlert('Tidak ada data tersedia', 'error'); return; }
-                const blob = await r.blob();
-                const url = URL.createObjectURL(blob);
-                const a = Object.assign(document.createElement('a'), { href: url, download: 'sensor_data.csv' });
-                document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
-                showAlert('Data berhasil didownload!', 'success');
-            } catch (e) { showAlert('Error: ' + e.message, 'error'); }
-        }
+  async function setDateTime() {
+    const dateVal = document.getElementById('rtcDate').value;
+    const timeVal = document.getElementById('rtcTimeInput').value;
 
-        async function deleteData() {
-            if (!confirm('Hapus SEMUA data log?\n\nTindakan ini tidak dapat dibatalkan.')) return;
-            try {
-                const d = await fetch('/data/delete', { method: 'POST' }).then(r => r.json());
-                if (d.status === 'success') {
-                    showAlert('Semua data berhasil dihapus!', 'success');
-                    setTimeout(fetchDataInfo, 800);
-                } else {
-                    showAlert('Gagal menghapus data', 'error');
-                }
-            } catch (e) { showAlert('Error: ' + e.message, 'error'); }
-        }
+    if (!dateVal || !timeVal) {
+      showAlert('Isi tanggal dan waktu terlebih dahulu', 'error');
+      return;
+    }
 
-        // ─────────────────────────────────
-        // /restart
-        // ─────────────────────────────────
-        async function restartSystem() {
-            if (!confirm('Restart sistem sekarang?')) return;
-            try {
-                await fetch('/restart', { method: 'POST' });
-            } catch (e) { /* ESP closes conn on restart */ }
-            showAlert('Sistem sedang restart… halaman akan dimuat ulang dalam 8 detik', 'success');
-            setTimeout(() => location.reload(), 8000);
-        }
+    const [year, month, day] = dateVal.split('-').map(Number);
+    const timeParts = timeVal.split(':').map(Number);
+    const hour = timeParts[0], minute = timeParts[1], second = timeParts[2] || 0;
 
-        // ─────────────────────────────────
-        // /logs
-        // ─────────────────────────────────
-        //   async function fetchLogs() {
-        //     try {
-        //       const d = await fetch('/logs').then(r => r.json());
-        //       const box = document.getElementById('logbox');
-        //       if (!d.logs || !d.logs.length) {
-        //         box.innerHTML = '<div class="logempty">Tidak ada log tersedia</div>';
-        //         return;
-        //       }
-        //       box.innerHTML = [...d.logs].reverse().map(l =>
-        //         `<div class="logrow"><span class="logts">${millisToHMS(l.timestamp)}</span><span class="logmsg">${escHtml(l.message)}</span></div>`
-        //       ).join('');
-        //     } catch(e) {
-        //       document.getElementById('logbox').innerHTML = '<div class="logempty">Gagal memuat log</div>';
-        //     }
-        //   }
+    const params = new URLSearchParams({ year, month, day, hour, minute, second });
 
-        async function fetchLogs() {
-            try {
-                const d = await fetch('/logs').then(r => r.json());
-                const box = document.getElementById('logbox');
-                if (!d.logs || !d.logs.length) {
-                    box.innerHTML = '<div class="logempty">Tidak ada log tersedia</div>';
-                    return;
-                }
+    try {
+      const r = await fetch('/datetime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params,
+      });
+      const d = await r.json();
+      if (r.ok && d.status === 'success') {
+        showAlert('RTC berhasil diupdate!', 'success');
+        // Re-sync our local RTC mirror
+        rtcMs = new Date(dateVal + 'T' + timeVal).getTime();
+        rtcFetchedAt = Date.now();
+      } else {
+        showAlert('Gagal update RTC: ' + (d.error || d.message), 'error');
+      }
+    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+  }
 
-                // The most recent log entry timestamp ≈ ESP32 millis "now".
-                // We know RTC "now" locally, so we can convert every millis
-                // to a real wall-clock time:
-                //   realTime(entry) = rtcNow - (latestMillis - entry.millis)
-                const rtcNow = (rtcMs !== null)
-                    ? rtcMs + (Date.now() - rtcFetchedAt)
-                    : null;
-                const latestMillis = Math.max(...d.logs.map(l => l.timestamp));
+  // ─────────────────────────────────
+  // ─────────────────────────────────
+  async function saveSettings() {
+    const t1 = (document.getElementById('irrigationTime1').value||'07:00').split(':');
+    const t2 = (document.getElementById('irrigationTime2').value||'16:00').split(':');
 
-                function logTime(ms) {
-                    if (rtcNow === null) return millisToHMS(ms); // fallback to uptime
-                    const entryRtc = new Date(rtcNow - (latestMillis - ms));
-                    return pad(entryRtc.getHours()) + ':' +
-                        pad(entryRtc.getMinutes()) + ':' +
-                        pad(entryRtc.getSeconds());
-                }
+    // pumpDuration: backend stores ms directly (no server-side multiply)
+    // measurementInterval / dataLogInterval: backend does seconds * 1000
+    const params = new URLSearchParams({
+      threshold:           document.getElementById('threshold').value,
+      pumpDuration:        parseInt(document.getElementById('pumpDuration').value) * 1000,
+      measurementInterval: document.getElementById('measurementInterval').value,
+      dataLogInterval:     document.getElementById('dataLogInterval').value,
+      dry:                 document.getElementById('dry').value,
+      wet:                 document.getElementById('wet').value,
+      irrigationHour1:     parseInt(t1[0]),
+      irrigationMinute1:   parseInt(t1[1]),
+      irrigationSecond1:   document.getElementById('irrigationSecond1').value,
+      irrigationHour2:     parseInt(t2[0]),
+      irrigationMinute2:   parseInt(t2[1]),
+      irrigationSecond2:   document.getElementById('irrigationSecond2').value,
+    });
 
-                box.innerHTML = [...d.logs].reverse().map(l =>
-                    `<div class="logrow"><span class="logts">${logTime(l.timestamp)}</span><span class="logmsg">${escHtml(l.message)}</span></div>`
-                ).join('');
-            } catch (e) {
-                document.getElementById('logbox').innerHTML = '<div class="logempty">Gagal memuat log</div>';
-            }
-        }
+    try {
+      const r = await fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params,
+      });
+      if (r.ok) {
+        showAlert('Pengaturan berhasil disimpan!', 'success');
+        setTimeout(() => { fetchStatus(); fetchConfig(); }, 800);
+      } else {
+        showAlert('Gagal menyimpan pengaturan', 'error');
+      }
+    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+  }
 
-        // ─────────────────────────────────
-        // INIT
-        // ─────────────────────────────────
-        window.onload = async function () {
-            // Sync theme button icon with saved preference
-            if (localStorage.getItem('nursery-theme') === 'light') {
-                document.getElementById('themeBtn').textContent = '☀️';
-            }
-            await syncRTC();
-            fetchStatus();
-            fetchConfig();
-            fetchLogs();
-            fetchDataInfo();
+  // ─────────────────────────────────
+  // /data/*
+  // ─────────────────────────────────
+  async function fetchDataInfo() {
+    try {
+      const d = await fetch('/data/info').then(r => r.json());
+      document.getElementById('dataRecords').textContent = d.records ?? 0;
+      document.getElementById('dataSize').textContent = d.size ? (d.size/1024).toFixed(1)+' KB' : '0 KB';
+      if (d.nextLogSeconds !== undefined) {
+        const m = Math.floor(d.nextLogSeconds/60);
+        const s = d.nextLogSeconds % 60;
+        document.getElementById('nextLog').textContent = m+'m '+pad(s)+'s';
+      } else {
+        document.getElementById('nextLog').textContent = '--';
+      }
+    } catch(e) {}
+  }
 
-            setInterval(() => { fetchStatus(); fetchLogs(); fetchDataInfo(); }, 5000);
-            setInterval(syncRTC, 60000);
-        };
-    </script>
+  async function downloadData() {
+    try {
+      const r = await fetch('/data/download');
+      if (!r.ok) { showAlert('Tidak ada data tersedia', 'error'); return; }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), { href: url, download: 'sensor_data.csv' });
+      document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
+      showAlert('Data berhasil didownload!', 'success');
+    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+  }
+
+  async function deleteData() {
+    if (!confirm('Hapus SEMUA data log?\n\nTindakan ini tidak dapat dibatalkan.')) return;
+    try {
+      const d = await fetch('/data/delete', { method:'POST' }).then(r => r.json());
+      if (d.status === 'success') {
+        showAlert('Semua data berhasil dihapus!', 'success');
+        setTimeout(fetchDataInfo, 800);
+      } else {
+        showAlert('Gagal menghapus data', 'error');
+      }
+    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+  }
+
+  // ─────────────────────────────────
+  // /restart
+  // ─────────────────────────────────
+  async function restartSystem() {
+    if (!confirm('Restart sistem sekarang?')) return;
+    try {
+      await fetch('/restart', { method:'POST' });
+    } catch(e) { /* ESP closes conn on restart */ }
+    showAlert('Sistem sedang restart… halaman akan dimuat ulang dalam 8 detik', 'success');
+    setTimeout(() => location.reload(), 8000);
+  }
+
+  // ─────────────────────────────────
+  // /logs
+  // ─────────────────────────────────
+  async function fetchLogs() {
+    try {
+      const d = await fetch('/logs').then(r => r.json());
+      const box = document.getElementById('logbox');
+      if (!d.logs || !d.logs.length) {
+        box.innerHTML = '<div class="logempty">Tidak ada log tersedia</div>';
+        return;
+      }
+
+      // The most recent log entry timestamp ≈ ESP32 millis "now".
+      // We know RTC "now" locally, so we can convert every millis
+      // to a real wall-clock time:
+      //   realTime(entry) = rtcNow - (latestMillis - entry.millis)
+      const rtcNow = (rtcMs !== null)
+        ? rtcMs + (Date.now() - rtcFetchedAt)
+        : null;
+      const latestMillis = Math.max(...d.logs.map(l => l.timestamp));
+
+      function logTime(ms) {
+        if (rtcNow === null) return millisToHMS(ms); // fallback to uptime
+        const entryRtc = new Date(rtcNow - (latestMillis - ms));
+        return pad(entryRtc.getHours()) + ':' +
+               pad(entryRtc.getMinutes()) + ':' +
+               pad(entryRtc.getSeconds());
+      }
+
+      box.innerHTML = d.logs.map(l =>
+        `<div class="logrow"><span class="logts">${logTime(l.timestamp)}</span><span class="logmsg">${escHtml(l.message)}</span></div>`
+      ).join('');
+      box.scrollTop = box.scrollHeight;    } catch(e) {
+      document.getElementById('logbox').innerHTML = '<div class="logempty">Gagal memuat log</div>';
+    }
+  }
+
+  async function refreshAll() {
+    await Promise.all([fetchStatus(), fetchLogs(), fetchDataInfo()]);
+  }
+
+  // ─────────────────────────────────
+  // INIT
+  // ─────────────────────────────────
+  window.onload = async function() {
+    await syncRTC();
+    fillNow();
+    await Promise.all([fetchStatus(), fetchConfig(), fetchLogs(), fetchDataInfo()]);
+
+    setInterval(refreshAll, 5000);
+    setInterval(syncRTC, 60000);
+  };
+</script>
 </body>
-
 </html>

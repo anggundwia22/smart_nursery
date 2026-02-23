@@ -12,7 +12,7 @@
 // ========== PIN CONFIGURATION ==========
 #define DHTPIN 4
 #define DHTTYPE DHT22
-#define SOIL1_MOISTURE_PIN 14
+#define SOIL1_MOISTURE_PIN 12
 #define SOIL2_MOISTURE_PIN 25
 #define SOIL3_MOISTURE_PIN 26
 #define SOIL4_MOISTURE_PIN 27
@@ -133,7 +133,6 @@ bool saveConfig();                       // untuk menyimpan konfigurasi saat ini
 void validateMeasurementInterval();      // untuk memastikan interval pengukuran tidak kurang dari batas minimum
 
 void readDHT22(); // untuk membaca data suhu dan kelembapan dari sensor DHT22, serta menyimpan hasilnya ke struktur SensorData
-// void readSoilMoistureSensor();
 int readSoilPercent(int pin); // untuk membaca data kelembaban tanah dari sensor menggunakan ADC, kemudian mengkonversi nilai tersebut menjadi persentase berdasarkan kalibrasi ADC_DRY dan ADC_WET
 void readSoilMoisture();      // untuk membaca kelembaban tanah dari semua sensor yang terhubung dan menyimpan hasilnya ke struktur SensorData
 void initLuxMeter();          // untuk inisialisasi sensor cahaya BH1750
@@ -147,6 +146,7 @@ void handleConfig();       // untuk menangani permintaan HTTP ke rute "/config",
 void handleSettings();     // untuk menangani permintaan HTTP ke rute "/settings", biasanya digunakan untuk menerima data konfigurasi baru dari klien, memperbarui struktur Config, dan menyimpan perubahan ke file
 void handleRestart();      // untuk menangani permintaan HTTP ke rute "/restart", biasanya digunakan untuk mereset sistem secara manual melalui antarmuka web
 void handleLogs();         // untuk menangani permintaan HTTP ke rute "/logs", biasanya digunakan untuk mengirimkan log pesan yang disimpan dalam buffer sebagai respons dalam format JSON
+void handleSetDateTime();  // untuk menangani permintaan HTTP ke rute "/setdatetime", biasanya digunakan untuk menerima data tanggal dan waktu baru dari klien, memperbarui RTC dengan nilai tersebut, dan mengirimkan respons status kepada klien
 void handleTime();         // untuk menangani permintaan HTTP ke rute "/time", biasanya digunakan untuk mengirimkan waktu saat ini dari RTC dalam format JSON sebagai respons
 void handleDateTime();     // untuk menangani permintaan HTTP ke rute "/datetime", biasanya digunakan untuk menerima data tanggal dan waktu baru dari klien, memperbarui RTC dengan nilai tersebut, dan mengirimkan respons status kepada klien
 void handleDataDownload(); // untuk menangani permintaan HTTP ke rute "/data/download", biasanya digunakan untuk mengirimkan file data log dalam format CSV sebagai respons untuk diunduh oleh klien
@@ -196,44 +196,6 @@ void logToFile(const char *message)
 }
 
 // ========== INITIALIZATION FUNCTIONS ==========
-// void initRTC()
-// {
-//     Wire.begin();
-//     if (!rtc.begin())
-//     {
-//         serialPrintln("RTC not detected");
-//         return;
-//     }
-
-//     sensorData.rtcInitialized = true;
-//     if (rtc.lostPower())
-//     {
-//         rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-//         serialPrintln("RTC time adjusted");
-//     }
-//     serialPrintln("RTC initialized successfully");
-// }
-
-// void initRTC()
-// {
-//     Wire.begin();
-//     if (!rtc.begin())
-//     {
-//         serialPrintln("RTC not found");
-//         sensorData.rtcInitialized = false;
-//     }
-//     else
-//     {
-//         sensorData.rtcInitialized = true;
-//         if (rtc.lostPower())
-//         {
-//             serialPrintln("RTC lost power, setting time!");
-//             rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-//         }
-//         serialPrintln("RTC initialized successfully");
-//     }
-// }
-
 void initRTC()
 {
     Wire.begin();
@@ -412,7 +374,7 @@ void readDHT22()
         snprintf(logBuffer, sizeof(logBuffer),
                  "Temp: %.2f°C | Humidity: %.2f%%",
                  data.temperature, data.humidity);
-        serialPrintln("DHT22 sensor read successfully");
+        // serialPrintln("DHT22 sensor read successfully");
         logToFile(logBuffer);
     }
     else
@@ -421,71 +383,19 @@ void readDHT22()
     }
 }
 
-// void readSoilMoistureSensor()
-// {
-//     int rawValue = analogRead(SOIL_MOISTURE_PIN);
-//     sensorData.soilMoisture = map(rawValue, ADC_DRY, ADC_WET, 0, 100);
-//     sensorData.soilMoisture = constrain(sensorData.soilMoisture, 0, 100);
-
-//     char logBuffer[64];
-//     snprintf(logBuffer, sizeof(logBuffer),
-//              "Soil Moisture: %d%% (ADC: %d)",
-//              sensorData.soilMoisture, rawValue);
-//     serialPrintln(logBuffer);
-//     logToFile(logBuffer);
-// }
-
 // int readSoilPercent(int pin)
 // {
 //     int raw = analogRead(pin);
-//     raw = constrain(raw, 0, 4095); // sesuaikan hasil kalibrasi
-//     return map(raw, 4095, 0, 0, 100);
+//     raw = constrain(raw, config.dry, config.wet); // sesuaikan hasil kalibrasi
+//     return map(raw, config.wet, config.dry, 0, 100);
 // }
 
 int readSoilPercent(int pin)
 {
     int raw = analogRead(pin);
-    raw = constrain(raw, config.dry, config.wet); // sesuaikan hasil kalibrasi
-    return map(raw, config.wet, config.dry, 0, 100);
+    raw = constrain(raw, config.wet, config.dry); // sesuaikan hasil kalibrasi
+    return map(raw, config.dry, config.wet, 0, 100);
 }
-
-// int readSoilPercent(int pin)
-// {
-//     int raw = analogRead(pin);
-
-//     // cek sensor terbaca atau tidak
-//     if (raw < 500 || raw > 4000)
-//     {
-//         char logBuffer[80];
-//         snprintf(logBuffer, sizeof(logBuffer),
-//                  "Sensor tanah pada pin %d TIDAK Terdeteksi! Raw: %d", pin, raw);
-//         serialPrintln(logBuffer);
-//         return -1; // kode error
-//     }
-
-//     raw = constrain(raw, 1269, 2662);
-//     int percent = map(raw, 2662, 1269, 0, 100);
-
-//     char logBuffer[80];
-//     snprintf(logBuffer, sizeof(logBuffer),
-//              "Sensor tanah pada pin %d OK. Raw: %d Percent: %d%%", pin, raw, percent);
-//     serialPrintln(logBuffer);
-
-//     return percent;
-// }
-
-// int readSoilPercent(int pin)
-// {
-//     int raw = analogRead(pin);
-//     raw = constrain(raw, 0, 4095); // sesuaikan hasil kalibrasi
-//     return map(raw, 2662, 1269, 0, 100);
-// }
-
-// int readSoilPercent(int pin)
-// {
-//     int raw = analogRead(pin);
-//     return raw;
-// }
 
 void readSoilMoisture()
 {
@@ -540,11 +450,11 @@ void resetDailyIrrigation(DateTime &currentTime)
 
         char logBuffer[80];
         snprintf(logBuffer, sizeof(logBuffer),
-                 "New day - Schedule reset (%02d:%02d:%02d & %02d:%02d:%02d)",
+                 "Schedule reset (%02d:%02d:%02d & %02d:%02d:%02d)",
                  config.irrigationHour1, config.irrigationMinute1, config.irrigationSecond1,
                  config.irrigationHour2, config.irrigationMinute2, config.irrigationSecond2);
         serialPrintln(logBuffer);
-        logToFile("Daily irrigation schedule reset");
+        logToFile(logBuffer);
     }
 }
 
@@ -579,7 +489,7 @@ void controlPump(DateTime &currentTime)
 
     if (currentHour == config.irrigationHour1 &&
         currentMinute == config.irrigationMinute1 &&
-        currentSecond == config.irrigationSecond1 &&
+        currentSecond >= config.irrigationSecond1 &&
         !pumpControl.irrigationDone[0] &&
         pumpControl.state == PUMP_IDLE)
     {
@@ -592,7 +502,7 @@ void controlPump(DateTime &currentTime)
 
     if (currentHour == config.irrigationHour2 &&
         currentMinute == config.irrigationMinute2 &&
-        currentSecond == config.irrigationSecond2 &&
+        currentSecond >= config.irrigationSecond2 &&
         !pumpControl.irrigationDone[1] &&
         pumpControl.state == PUMP_IDLE)
     {
@@ -677,8 +587,10 @@ void handleStatus()
     doc["threshold"] = config.threshold;
     doc["irrigationHour1"] = config.irrigationHour1;
     doc["irrigationMinute1"] = config.irrigationMinute1;
+    doc["irrigationSecond1"] = config.irrigationSecond1;
     doc["irrigationHour2"] = config.irrigationHour2;
     doc["irrigationMinute2"] = config.irrigationMinute2;
+    doc["irrigationSecond2"] = config.irrigationSecond2;
 
     if (status.rtcInitialized)
     {
@@ -856,7 +768,7 @@ void initDataLog()
             serialPrintln("Failed to create data log file");
             return;
         }
-        file.println("DateTime,Temperature(C),Humidity(%),Lux,SoilMoisture1(%),SoilMoisture2(%),SoilMoisture3(%),SoilMoisture4(%),SoilMoisture5(%),SoilMoisture6(%),SoilMoisture7(%),SoilMoisture8(%),SoilMoisture9(%),SoilMoisture10(%)");
+        file.println("DateTime,Temperature(C),Humidity(%),Lux,SoilMoisture1(%),SoilMoisture2(%),SoilMoisture3(%),SoilMoisture4(%),SoilMoisture5(%),SoilMoisture6(%),SoilMoisture7(%),SoilMoisture8(%),SoilMoisture9(%),SoilMoisture10(%),PumpCondition");
         file.close();
         serialPrintln("Data log file created with header");
     }
@@ -883,7 +795,7 @@ void saveDataRecord()
 
     DateTime now = rtc.now();
     char buffer[200];
-    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s",
              now.year(), now.month(), now.day(),
              now.hour(), now.minute(), now.second(),
              data.temperature,
@@ -898,7 +810,8 @@ void saveDataRecord()
              data.soilMoisture7,
              data.soilMoisture8,
              data.soilMoisture9,
-             data.soilMoisture10);
+             data.soilMoisture10,
+             (pumpControl.state == PUMP_RUNNING) ? "ON" : "OFF");
 
     file.println(buffer);
     file.close();
@@ -910,7 +823,7 @@ void saveDataRecord()
 
     char logMsg[120];
     snprintf(logMsg, sizeof(logMsg), "Data saved: Temperature=%.2f°C Humidity=%.2f%% Lux=%.2f SM1=%d%%",
-             data.temperature, data.humidity, data.lux, data.soilMoisture1);
+             data.temperature, data.humidity, data.lux, data.soilMoisture10);
     serialPrintln(logMsg);
 }
 
@@ -1010,6 +923,46 @@ void handleDataInfo()
     server.send(200, "application/json", response);
 }
 
+void handleSetDateTime()
+{
+    if (!status.rtcInitialized)
+    {
+        server.send(500, "application/json", "{\"error\":\"RTC not initialized\"}");
+        return;
+    }
+
+    // Expects POST args: year, month, day, hour, minute, second
+    if (!server.hasArg("year") || !server.hasArg("month") || !server.hasArg("day") ||
+        !server.hasArg("hour") || !server.hasArg("minute") || !server.hasArg("second"))
+    {
+        server.send(400, "application/json", "{\"error\":\"Missing parameters\"}");
+        return;
+    }
+
+    int y  = server.arg("year").toInt();
+    int mo = server.arg("month").toInt();
+    int d  = server.arg("day").toInt();
+    int h  = server.arg("hour").toInt();
+    int mi = server.arg("minute").toInt();
+    int s  = server.arg("second").toInt();
+
+    if (y < 2000 || y > 2099 || mo < 1 || mo > 12 || d < 1 || d > 31 ||
+        h < 0 || h > 23 || mi < 0 || mi > 59 || s < 0 || s > 59)
+    {
+        server.send(400, "application/json", "{\"error\":\"Invalid date/time values\"}");
+        return;
+    }
+
+    rtc.adjust(DateTime(y, mo, d, h, mi, s));
+
+    char logBuffer[64];
+    snprintf(logBuffer, sizeof(logBuffer),
+             "RTC updated: %04d-%02d-%02d %02d:%02d:%02d", y, mo, d, h, mi, s);
+    serialPrintln(logBuffer);
+
+    server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"RTC updated\"}");
+}
+
 void setupWebServer()
 {
     server.enableCORS(true);
@@ -1021,7 +974,14 @@ void setupWebServer()
     server.on("/restart", HTTP_POST, handleRestart);
     server.on("/logs", HTTP_GET, handleLogs);
     server.on("/time", HTTP_GET, handleTime);
-    server.on("/datetime", HTTP_GET, handleDateTime);
+    // server.on("/datetime", HTTP_GET, handleDateTime);
+    server.on("/datetime", HTTP_ANY, []() {
+        if (server.method() == HTTP_POST)
+            handleSetDateTime();
+        else
+            handleDateTime();
+    });
+
     // server.on("/serial", HTTP_GET, handleSerial);
 
     // ← TAMBAH 3 BARIS INI:
@@ -1032,24 +992,6 @@ void setupWebServer()
     server.begin();
     serialPrintln("Web server started");
 }
-
-// void handleSerial()
-// {
-//     String logs;
-//     logs.reserve(SERIAL_BUFFER_SIZE * 100); // Pre-allocate space
-
-//     int start = (serialBufferIndex - totalMessages + SERIAL_BUFFER_SIZE) % SERIAL_BUFFER_SIZE;
-//     for (int i = 0; i < totalMessages; i++)
-//     {
-//         int index = (start + i) % SERIAL_BUFFER_SIZE;
-//         logs += String(serialBuffer[index].timestamp);
-//         logs += ": ";
-//         logs += serialBuffer[index].message;
-//         logs += "\n";
-//     }
-
-//     server.send(200, "text/plain", logs);
-// }
 
 void handleDateTime()
 {
@@ -1173,7 +1115,6 @@ void loop()
         readDHT22();
         readSoilMoisture();
         readLuxMeter();
-        // readSoilMoistureSensor();
 
         if (now - data.lastDataLog >= config.dataLogInterval)
         {
@@ -1181,18 +1122,28 @@ void loop()
             saveDataRecord();
         }
 
-        if (status.rtcInitialized)
-        {
-            DateTime currentTime = rtc.now();
-            resetDailyIrrigation(currentTime);
-            controlPump(currentTime);
+        // if (status.rtcInitialized)
+        // {
+        //     DateTime currentTime = rtc.now();
+        //     // resetDailyIrrigation(currentTime);
+        //     // controlPump(currentTime);
 
-            char logBuffer[64];
-            snprintf(logBuffer, sizeof(logBuffer),
-                     "Time: %02d-%02d-%04d %02d:%02d:%02d",
-                     currentTime.day(), currentTime.month(), currentTime.year(),
-                     currentTime.hour(), currentTime.minute(), currentTime.second());
-            serialPrintln(logBuffer);
-        }
+        //     char logBuffer[64];
+        //     snprintf(logBuffer, sizeof(logBuffer),
+        //              "Time: %02d-%02d-%04d %02d:%02d:%02d",
+        //              currentTime.day(), currentTime.month(), currentTime.year(),
+        //              currentTime.hour(), currentTime.minute(), currentTime.second());
+        //     // serialPrintln(logBuffer);
+        // }
+    }
+
+    // Pump control runs every second — not gated by measurementInterval
+    static unsigned long lastPumpCheck = 0;
+    if (status.rtcInitialized && millis() - lastPumpCheck >= 1000)
+    {
+        lastPumpCheck = millis();
+        DateTime currentTime = rtc.now();
+        resetDailyIrrigation(currentTime);
+        controlPump(currentTime);
     }
 }
