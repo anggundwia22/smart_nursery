@@ -21,7 +21,7 @@
 #define SOIL7_MOISTURE_PIN 34
 #define SOIL8_MOISTURE_PIN 35
 #define SOIL9_MOISTURE_PIN 36
-#define SOIL10_MOISTURE_PIN 37
+#define SOIL10_MOISTURE_PIN 39
 #define RELAY_PIN 19
 
 // ========== RELAY CONTROL ==========
@@ -579,7 +579,7 @@ void controlPump(DateTime &currentTime)
 
     if (currentHour == config.irrigationHour1 &&
         currentMinute == config.irrigationMinute1 &&
-        currentSecond == 0 &&
+        currentSecond == config.irrigationSecond1 &&
         !pumpControl.irrigationDone[0] &&
         pumpControl.state == PUMP_IDLE)
     {
@@ -592,7 +592,7 @@ void controlPump(DateTime &currentTime)
 
     if (currentHour == config.irrigationHour2 &&
         currentMinute == config.irrigationMinute2 &&
-        currentSecond == 0 &&
+        currentSecond == config.irrigationSecond2 &&
         !pumpControl.irrigationDone[1] &&
         pumpControl.state == PUMP_IDLE)
     {
@@ -662,10 +662,17 @@ void handleStatus()
     JsonDocument doc;
     doc["temperature"] = data.temperature;
     doc["humidity"] = data.humidity;
+    doc["lux"] = data.lux;
     doc["soilMoisture1"] = data.soilMoisture1;
     doc["soilMoisture2"] = data.soilMoisture2;
     doc["soilMoisture3"] = data.soilMoisture3;
     doc["soilMoisture4"] = data.soilMoisture4;
+    doc["soilMoisture5"] = data.soilMoisture5;
+    doc["soilMoisture6"] = data.soilMoisture6;
+    doc["soilMoisture7"] = data.soilMoisture7;
+    doc["soilMoisture8"] = data.soilMoisture8;
+    doc["soilMoisture9"] = data.soilMoisture9;
+    doc["soilMoisture10"] = data.soilMoisture10;
     doc["pumpState"] = pumpControl.state;
     doc["threshold"] = config.threshold;
     doc["irrigationHour1"] = config.irrigationHour1;
@@ -875,8 +882,8 @@ void saveDataRecord()
     }
 
     DateTime now = rtc.now();
-    char buffer[100];
-    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d,%.2f,%.2f,%d,%d,%d,%d",
+    char buffer[200];
+    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
              now.year(), now.month(), now.day(),
              now.hour(), now.minute(), now.second(),
              data.temperature,
@@ -902,8 +909,8 @@ void saveDataRecord()
     // serialPrintln(logMsg);
 
     char logMsg[120];
-    snprintf(logMsg, sizeof(logMsg), "Data saved: T=%.2f°C H=%.2f%% SM1=%d%%",
-             data.temperature, data.humidity, data.soilMoisture1);
+    snprintf(logMsg, sizeof(logMsg), "Data saved: Temperature=%.2f°C Humidity=%.2f%% Lux=%.2f SM1=%d%%",
+             data.temperature, data.humidity, data.lux, data.soilMoisture1);
     serialPrintln(logMsg);
 }
 
@@ -1068,7 +1075,7 @@ void handleTime()
     {
         DateTime now = rtc.now();
         String json = "{";
-        json += "\"time\":\"" + String(now.timestamp(DateTime::TIMESTAMP_TIME)) + "\",";
+        json += "\"time\":\"" + String(now.timestamp(DateTime::TIMESTAMP_TIME)) + "\"";
         json += "}";
 
         server.send(200, "application/json", json);
