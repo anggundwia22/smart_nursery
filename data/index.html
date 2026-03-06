@@ -64,6 +64,7 @@
     /* HEADER */
     .header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:32px; flex-wrap:wrap; }
     .header-left { display:flex; align-items:center; gap:16px; }
+    .header-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     .logo {
       width:48px; height:48px; border-radius:14px; flex-shrink:0;
       background: linear-gradient(135deg,#166534,#4ade80);
@@ -72,7 +73,6 @@
     }
     .header-title { font-family:var(--display); font-size:1.55rem; font-weight:800; color:var(--green); line-height:1.1; }
     .header-sub { font-size:0.78rem; color:var(--muted); font-family:var(--mono); margin-top:2px; }
-    .header-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     .rtc-box { font-family:var(--mono); font-size:0.88rem; color:var(--text-dim); background:var(--card); border:1px solid var(--border); padding:8px 14px; border-radius:8px; letter-spacing:0.04em; }
     .rtc-box small { display:block; font-size:0.68rem; color:var(--muted); margin-bottom:1px; }
     .conn-badge { display:flex; align-items:center; gap:7px; padding:8px 14px; border-radius:8px; font-size:0.78rem; font-weight:600; font-family:var(--mono); border:1px solid; transition:all .3s; }
@@ -81,11 +81,11 @@
     .dot { width:8px; height:8px; border-radius:50%; background:currentColor; animation:blink 2s infinite; }
     @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
 
-    /* ALERT */
-    .alert { display:flex; align-items:center; gap:10px; padding:12px 18px; border-radius:10px; margin-bottom:20px; font-size:.88rem; font-weight:500; border:1px solid; }
-    .alert.hidden { display:none; }
-    .alert.success { background:rgba(74,222,128,.1); border-color:var(--green-dim); color:var(--green); }
-    .alert.error   { background:rgba(248,113,113,.1); border-color:var(--red); color:var(--red); }
+    /* ANDROID-STYLE TOAST (bottom, non-blocking) */
+    .toast-container { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999; padding:0 24px; max-width:calc(100% - 48px); pointer-events:none; }
+    .toast { background:#323232; color:rgba(255,255,255,0.92); font-size:14px; padding:12px 20px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.4); opacity:0; transition:opacity .2s ease; max-width:min(360px, 100%); text-align:center; line-height:1.35; }
+    .toast.on { opacity:1; }
+    :root.light .toast { background:#424242; color:rgba(255,255,255,0.92); box-shadow:0 4px 12px rgba(0,0,0,.25); }
 
     /* SECTION LABEL */
     .sec { font-family:var(--mono); font-size:.68rem; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:10px; }
@@ -119,25 +119,37 @@
     .soil .snum  { font-family:var(--mono); font-size:.62rem; font-weight:600; letter-spacing:.1em; color:var(--muted); margin-bottom:6px; text-transform:uppercase; }
     .soil .sval  { font-family:var(--mono); font-size:1.85rem; font-weight:600; line-height:1; color:var(--text); }
     .soil .sval .u { font-size:.78rem; font-weight:400; color:var(--muted); }
+    .soil.soil-avg { grid-column:1 / -1; }
+    .soil.soil-avg .snum { font-size:.65rem; letter-spacing:.12em; }
+    .soil.soil-avg .sval { font-size:2.25rem; font-weight:700; color:var(--text); }
+    .soil.soil-avg .sval .u { font-size:.9rem; }
     .soil .btrack { width:100%; height:4px; background:var(--border); border-radius:3px; margin-top:9px; overflow:hidden; }
     .soil .bfill  { height:100%; border-radius:3px; transition:width .6s ease; background:linear-gradient(90deg,#16a34a,#4ade80); }
     .soil .bfill.dry { background:linear-gradient(90deg,#b45309,#fbbf24); }
     .soil .bfill.wet { background:linear-gradient(90deg,#0369a1,#38bdf8); }
     .soil .slabel { font-size:.62rem; font-family:var(--mono); margin-top:5px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
 
-    /* PUMP CARD */
-    .pump-ring { width:78px; height:78px; border-radius:50%; border:3px solid var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:1.9rem; transition:all .4s; }
-    .pump-ring.idle     { border-color:var(--border2); }
-    .pump-ring.running  { border-color:var(--green); box-shadow:0 0 0 0 rgba(74,222,128,.3); animation:pulsering 1.8s ease-out infinite; }
-    .pump-ring.cooldown { border-color:var(--amber); box-shadow:0 0 16px rgba(251,191,36,.25); }
-    .pump-ring.error    { border-color:var(--red);   box-shadow:0 0 16px rgba(248,113,113,.25); }
-    @keyframes pulsering { 0%{box-shadow:0 0 0 0 rgba(74,222,128,.4)} 70%{box-shadow:0 0 0 12px rgba(74,222,128,0)} 100%{box-shadow:0 0 0 0 rgba(74,222,128,0)} }
+    /* PUMP CARD — unified icon: same shape, state by color/fill/glow */
+    .pump-ring { width:78px; height:78px; border-radius:50%; border:3px solid var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; transition:all .35s ease; cursor:pointer; background:transparent; padding:0; appearance:none; -webkit-appearance:none; }
+    .pump-ring:hover { filter:brightness(1.08); }
+    .pump-ring:active { transform:scale(0.97); }
+    .pump-ring.idle     { border-color:var(--border2); color:var(--muted); }
+    .pump-ring.running  { border-color:var(--green); color:var(--green); box-shadow:0 0 0 0 rgba(74,222,128,.35); animation:pulsering 1.8s ease-out infinite; }
+    .pump-ring.cooldown { border-color:var(--amber); color:var(--amber); box-shadow:0 0 12px rgba(251,191,36,.2); }
+    .pump-ring.error    { border-color:var(--red);   color:var(--red);   box-shadow:0 0 12px rgba(248,113,113,.2); }
+    @keyframes pulsering { 0%{box-shadow:0 0 0 0 rgba(74,222,128,.4)} 70%{box-shadow:0 0 0 14px rgba(74,222,128,0)} 100%{box-shadow:0 0 0 0 rgba(74,222,128,0)} }
+    .pump-icon { width:32px; height:32px; display:block; transition:fill .35s ease, stroke .35s ease, filter .35s ease; }
+    .pump-ring.idle .pump-icon     { fill:none; stroke:currentColor; stroke-width:2.2; stroke-linejoin:round; }
+    .pump-ring.running .pump-icon { fill:currentColor; stroke:none; filter:drop-shadow(0 0 6px currentColor); }
+    .pump-ring.cooldown .pump-icon { fill:none; stroke:currentColor; stroke-width:2.2; stroke-linejoin:round; }
+    .pump-ring.error .pump-icon   { fill:none; stroke:currentColor; stroke-width:2.2; stroke-linejoin:round; }
     .pump-lbl { text-align:center; font-family:var(--mono); font-size:.78rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; margin-bottom:4px; }
     .pump-lbl.idle     { color:var(--muted); }
     .pump-lbl.running  { color:var(--green); }
     .pump-lbl.cooldown { color:var(--amber); }
     .pump-lbl.error    { color:var(--red); }
-    .pump-desc { text-align:center; font-size:.75rem; color:var(--muted); margin-bottom:14px; }
+    .pump-desc { text-align:center; font-size:.75rem; color:var(--muted); margin-bottom:4px; }
+    .pump-source { text-align:center; font-size:.68rem; font-family:var(--mono); color:var(--muted); margin-bottom:14px; min-height:1em; }
     .trow { display:flex; align-items:center; justify-content:space-between; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
     .trow .tl { font-size:.72rem; color:var(--muted); font-family:var(--mono); }
     .trow .tv { font-family:var(--mono); font-weight:600; color:var(--green); font-size:.95rem; }
@@ -147,7 +159,6 @@
     .sched-item { display:flex; align-items:center; justify-content:space-between; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:11px 15px; }
     .sched-n { font-family:var(--mono); font-size:.64rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
     .sched-t { font-family:var(--mono); font-size:1.3rem; font-weight:600; color:var(--text); letter-spacing:.04em; }
-    .sched-s { font-size:.68rem; font-family:var(--mono); color:var(--muted); }
 
     /* DATA */
     .dstats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
@@ -179,6 +190,8 @@
     .panel { display:none; }
     .panel.on { display:block; }
     .fgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+    .fgrid-jadwal { grid-template-columns:repeat(2,1fr); gap:18px; }
+    @media(max-width:520px){ .fgrid-jadwal { grid-template-columns:1fr; } }
     .fg { display:flex; flex-direction:column; gap:6px; }
     .fl { font-family:var(--mono); font-size:.68rem; font-weight:500; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
     .fl span { text-transform:none; letter-spacing:0; font-weight:400; }
@@ -227,10 +240,9 @@
     </div>
   </header>
 
-  <!-- ALERT -->
-  <div class="alert hidden" id="alertBox">
-    <span id="alertIcon">✓</span>
-    <span id="alertMsg"></span>
+  <!-- ANDROID-STYLE TOAST (bottom overlay) -->
+  <div class="toast-container">
+    <div class="toast" id="toast" aria-live="polite"></div>
   </div>
 
   <!-- ENVIRONMENT -->
@@ -253,9 +265,15 @@
     </div>
   </div>
 
-  <!-- SOIL MOISTURE (10 sensors) -->
+  <!-- SOIL MOISTURE (average + 10 sensors) -->
   <div class="sec">Kelembaban Tanah</div>
   <div class="g5">
+    <div class="card soil soil-avg">
+      <div class="snum">Rata-Rata Kelembaban Tanah</div>
+      <div class="sval"><span id="soilAvgVal">--</span><span class="u" id="soilAvgUnit">%</span></div>
+      <div class="btrack"><div class="bfill" id="soilAvgBar" style="width:0%"></div></div>
+      <div class="slabel" id="soilAvgLabel">–</div>
+    </div>
     <div class="card soil"><div class="snum">Sensor 01</div><div class="sval"><span id="sm1">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar1" style="width:0%"></div></div><div class="slabel" id="sl1">–</div></div>
     <div class="card soil"><div class="snum">Sensor 02</div><div class="sval"><span id="sm2">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar2" style="width:0%"></div></div><div class="slabel" id="sl2">–</div></div>
     <div class="card soil"><div class="snum">Sensor 03</div><div class="sval"><span id="sm3">--</span><span class="u">%</span></div><div class="btrack"><div class="bfill" id="bar3" style="width:0%"></div></div><div class="slabel" id="sl3">–</div></div>
@@ -276,9 +294,14 @@
       <div class="chard">
         <div class="ctitle">⚙️ Status Pompa</div>
       </div>
-      <div class="pump-ring idle" id="pumpRing"><span id="pumpEmoji">⏸</span></div>
+      <button type="button" class="pump-ring idle" id="pumpRing" onclick="togglePump()" title="Klik untuk menyalakan pompa" aria-label="Pompa ON/OFF">
+        <svg class="pump-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M8 5v14l11-7L8 5z" stroke-linejoin="round"/>
+        </svg>
+      </button>
       <div class="pump-lbl idle" id="pumpLbl">IDLE</div>
       <div class="pump-desc" id="pumpDesc">Sistem standby</div>
+      <div class="pump-source" id="pumpControlSource"></div>
       <div class="trow">
         <span class="tl">THRESHOLD</span>
         <span class="tv"><span id="thresholdVal">--</span>%</span>
@@ -292,11 +315,9 @@
       <div class="sched-list">
         <div class="sched-item">
           <div><div class="sched-n">Jadwal 1</div><div class="sched-t" id="sched1">--:--</div></div>
-          <div class="sched-s" id="schedSec1">–</div>
         </div>
         <div class="sched-item">
           <div><div class="sched-n">Jadwal 2</div><div class="sched-t" id="sched2">--:--</div></div>
-          <div class="sched-s" id="schedSec2">–</div>
         </div>
       </div>
       <div class="div"></div>
@@ -355,28 +376,18 @@
       <button class="tab"    onclick="swTab('kalib',this)">Kalibrasi</button>
     </div>
 
-    <!-- Tab: Jadwal -->
+    <!-- Tab: Jadwal (HH:MM only) -->
     <div class="panel on" id="panel-jadwal">
-      <div class="fgrid">
+      <div class="fgrid fgrid-jadwal">
         <div class="fg">
-          <div class="fl">Jadwal 1 <span>jam:menit</span></div>
-          <input type="time" id="irrigationTime1" class="fi" value="07:00">
+          <div class="fl">Jadwal 1 <span>(HH:MM)</span></div>
+          <input type="time" id="irrigationTime1" class="fi" value="07:00" step="60" min="00:00" max="23:59">
           <div class="fh">Waktu penyiraman pertama setiap hari</div>
         </div>
         <div class="fg">
-          <div class="fl">Detik Jadwal 1</div>
-          <input type="number" id="irrigationSecond1" class="fi" min="0" max="59" value="0">
-          <div class="fh">Detik tepat pompa menyala (0–59)</div>
-        </div>
-        <div class="fg">
-          <div class="fl">Jadwal 2 <span>jam:menit</span></div>
-          <input type="time" id="irrigationTime2" class="fi" value="16:00">
+          <div class="fl">Jadwal 2 <span>(HH:MM)</span></div>
+          <input type="time" id="irrigationTime2" class="fi" value="16:00" step="60" min="00:00" max="23:59">
           <div class="fh">Waktu penyiraman kedua setiap hari</div>
-        </div>
-        <div class="fg">
-          <div class="fl">Detik Jadwal 2</div>
-          <input type="number" id="irrigationSecond2" class="fi" min="0" max="59" value="0">
-          <div class="fh">Detik tepat pompa menyala (0–59)</div>
         </div>
       </div>
       <div class="fax">
@@ -485,13 +496,32 @@
   // ─────────────────────────────────
   const pad = n => String(n).padStart(2,'0');
 
-  function showAlert(msg, type='success') {
-    const box = document.getElementById('alertBox');
-    document.getElementById('alertIcon').textContent = type === 'success' ? '✓' : '✗';
-    document.getElementById('alertMsg').textContent = msg;
-    box.className = 'alert ' + type;
-    clearTimeout(showAlert._t);
-    showAlert._t = setTimeout(() => box.classList.add('hidden'), 5000);
+  const TOAST_DURATION_MS = 2500;
+  const TOAST_FADEOUT_MS = 200;
+  const toastQueue = [];
+  let toastShowing = false;
+  let toastTimeout = null;
+
+  function showAlert(msg, type) {
+    toastQueue.push({ msg: String(msg), type: type || 'success' });
+    processToastQueue();
+  }
+
+  function processToastQueue() {
+    if (toastShowing || toastQueue.length === 0) return;
+    toastShowing = true;
+    const { msg } = toastQueue.shift();
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('on');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+      el.classList.remove('on');
+      setTimeout(() => {
+        toastShowing = false;
+        processToastQueue();
+      }, TOAST_FADEOUT_MS);
+    }, TOAST_DURATION_MS);
   }
 
   function swTab(name, btn) {
@@ -524,6 +554,33 @@
     bar.closest('.card').style.borderColor = val < threshold ? 'rgba(251,191,36,0.4)' : '';
   }
 
+  function updateSoilAverage(d) {
+    const vals = [];
+    for (let i = 1; i <= 10; i++) {
+      const v = d['soilMoisture' + i];
+      if (v !== undefined && v !== null && !isNaN(Number(v))) vals.push(Number(v));
+    }
+    const avgValEl = document.getElementById('soilAvgVal');
+    const avgUnitEl = document.getElementById('soilAvgUnit');
+    const avgBar = document.getElementById('soilAvgBar');
+    const avgLabel = document.getElementById('soilAvgLabel');
+    if (vals.length === 0) {
+      avgValEl.textContent = 'Data tidak tersedia.';
+      avgUnitEl.style.display = 'none';
+      avgBar.style.width = '0%';
+      avgBar.className = 'bfill';
+      avgLabel.textContent = '';
+    } else {
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const rounded = Math.round(avg);
+      avgValEl.textContent = rounded;
+      avgUnitEl.style.display = '';
+      avgBar.style.width = Math.min(100, Math.max(0, avg)) + '%';
+      avgBar.className = 'bfill ' + soilClass(avg);
+      avgLabel.textContent = soilText(avg);
+    }
+  }
+
   // ─────────────────────────────────
   // RTC CLOCK (local increment)
   // ─────────────────────────────────
@@ -543,6 +600,31 @@
       now.getFullYear() + '/' + pad(now.getMonth()+1) + '/' + pad(now.getDate()) +
       '  ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
   }, 1000);
+
+  // ─────────────────────────────────
+  // Pump ON/OFF (POST /pump)
+  // ─────────────────────────────────
+  async function togglePump() {
+    const ringState = document.getElementById('pumpRing').getAttribute('data-pump-state');
+    const turnOn = (ringState !== '1');
+    const state = turnOn ? 'on' : 'off';
+    try {
+      const r = await fetch('/pump', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'state=' + state,
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && (d.status === 'success' || d.status === undefined)) {
+        showAlert(turnOn ? 'Pompa berhasil dinyalakan.' : 'Pompa berhasil dimatikan.', 'success');
+        setTimeout(fetchStatus, 400);
+      } else {
+        showAlert('Gagal mengontrol pompa. Periksa koneksi atau status sistem.', 'error');
+      }
+    } catch(e) {
+      showAlert('Terjadi kesalahan: ' + e.message, 'error');
+    }
+  }
 
   // ─────────────────────────────────
   // /status
@@ -570,22 +652,29 @@
       threshold = d.threshold ?? threshold;
       document.getElementById('thresholdVal').textContent = d.threshold ?? '--';
 
-      // Soil 1-4 (from /status); 5-10 need backend update in handleStatus()
+      // Soil 1–10 and average
       for (let i = 1; i <= 10; i++) updateSoil(i, d['soilMoisture' + i]);
+      updateSoilAverage(d);
 
-      // Pump
+      // Pump — play (▶) when off, pause (⏸) when running; ring is a button
       const pumpMap = {
-        0: { cls:'idle',     em:'⏸', lbl:'IDLE',     dsc:'Sistem standby'           },
-        1: { cls:'running',  em:'💦', lbl:'RUNNING',  dsc:'Sedang menyiram...'       },
-        2: { cls:'cooldown', em:'⏳', lbl:'COOLDOWN', dsc:'Menunggu sebelum kembali'  },
-        3: { cls:'error',    em:'⚠️', lbl:'ERROR',    dsc:'Cek pompa &amp; relay'    },
+        0: { cls:'idle',     em:'▶', lbl:'IDLE',     dsc:'Sistem standby'           },
+        1: { cls:'running',  em:'⏸', lbl:'RUNNING',  dsc:'Sedang menyiram...'       },
+        2: { cls:'cooldown', em:'▶', lbl:'COOLDOWN', dsc:'Menunggu sebelum kembali'  },
+        3: { cls:'error',    em:'▶', lbl:'ERROR',    dsc:'Cek pompa &amp; relay'    },
       };
       const ps = pumpMap[d.pumpState] ?? pumpMap[0];
-      document.getElementById('pumpRing').className  = 'pump-ring '  + ps.cls;
+      const ringEl = document.getElementById('pumpRing');
+      ringEl.className = 'pump-ring ' + ps.cls;
+      ringEl.setAttribute('data-pump-state', String(d.pumpState ?? 0));
+      ringEl.title = (d.pumpState === 1) ? 'Klik untuk mematikan pompa' : 'Klik untuk menyalakan pompa';
+      ringEl.setAttribute('aria-label', (d.pumpState === 1) ? 'Pompa OFF' : 'Pompa ON');
       document.getElementById('pumpLbl').className   = 'pump-lbl '   + ps.cls;
       document.getElementById('pumpLbl').textContent = ps.lbl;
       document.getElementById('pumpDesc').innerHTML  = ps.dsc;
-      document.getElementById('pumpEmoji').textContent = ps.em;
+
+      const controlSourceTxt = { 0: '', 1: 'Kontrol: Manual', 2: 'Kontrol: Kelembaban tanah', 3: 'Kontrol: Jadwal' };
+      document.getElementById('pumpControlSource').textContent = controlSourceTxt[d.controlSource] ?? '';
 
       // Schedule display
       if (d.irrigationHour1 !== undefined)
@@ -619,14 +708,8 @@
       document.getElementById('dry').value                = d.dry ?? 2662;
       document.getElementById('wet').value                = d.wet ?? 1269;
 
-      document.getElementById('irrigationTime1').value   = pad(d.irrigationHour1??7)+':'+pad(d.irrigationMinute1??0);
-      document.getElementById('irrigationSecond1').value = d.irrigationSecond1 ?? 0;
-      document.getElementById('irrigationTime2').value   = pad(d.irrigationHour2??16)+':'+pad(d.irrigationMinute2??0);
-      document.getElementById('irrigationSecond2').value = d.irrigationSecond2 ?? 0;
-
-      // Also update schedule secondary label (seconds)
-      document.getElementById('schedSec1').textContent = ':' + pad(d.irrigationSecond1??0) + 's';
-      document.getElementById('schedSec2').textContent = ':' + pad(d.irrigationSecond2??0) + 's';
+      document.getElementById('irrigationTime1').value = pad(d.irrigationHour1??7)+':'+pad(d.irrigationMinute1??0);
+      document.getElementById('irrigationTime2').value = pad(d.irrigationHour2??16)+':'+pad(d.irrigationMinute2??0);
 
     } catch(e) { console.error('fetchConfig:', e); }
   }
@@ -647,7 +730,7 @@
     const timeVal = document.getElementById('rtcTimeInput').value;
 
     if (!dateVal || !timeVal) {
-      showAlert('Isi tanggal dan waktu terlebih dahulu', 'error');
+      showAlert('Mohon isi tanggal dan waktu terlebih dahulu.', 'error');
       return;
     }
 
@@ -665,14 +748,14 @@
       });
       const d = await r.json();
       if (r.ok && d.status === 'success') {
-        showAlert('RTC berhasil diupdate!', 'success');
+        showAlert('Waktu sistem (RTC) berhasil diperbarui.', 'success');
         // Re-sync our local RTC mirror
         rtcMs = new Date(dateVal + 'T' + timeVal).getTime();
         rtcFetchedAt = Date.now();
       } else {
-        showAlert('Gagal update RTC: ' + (d.error || d.message), 'error');
+        showAlert('Gagal memperbarui RTC. ' + (d.error || d.message || ''), 'error');
       }
-    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+    } catch(e) { showAlert('Terjadi kesalahan: ' + e.message, 'error'); }
   }
 
   // ─────────────────────────────────
@@ -680,9 +763,12 @@
   async function saveSettings() {
     const t1 = (document.getElementById('irrigationTime1').value||'07:00').split(':');
     const t2 = (document.getElementById('irrigationTime2').value||'16:00').split(':');
+    const hour1 = Math.min(23, Math.max(0, parseInt(t1[0], 10) || 0));
+    const min1  = Math.min(59, Math.max(0, parseInt(t1[1], 10) || 0));
+    const hour2 = Math.min(23, Math.max(0, parseInt(t2[0], 10) || 0));
+    const min2  = Math.min(59, Math.max(0, parseInt(t2[1], 10) || 0));
 
-    // pumpDuration: backend stores ms directly (no server-side multiply)
-    // measurementInterval / dataLogInterval: backend does seconds * 1000
+    // Schedule is HH:MM only; send 0 for seconds (minute precision / truncate)
     const params = new URLSearchParams({
       threshold:           document.getElementById('threshold').value,
       pumpDuration:        parseInt(document.getElementById('pumpDuration').value) * 1000,
@@ -690,12 +776,12 @@
       dataLogInterval:     document.getElementById('dataLogInterval').value,
       dry:                 document.getElementById('dry').value,
       wet:                 document.getElementById('wet').value,
-      irrigationHour1:     parseInt(t1[0]),
-      irrigationMinute1:   parseInt(t1[1]),
-      irrigationSecond1:   document.getElementById('irrigationSecond1').value,
-      irrigationHour2:     parseInt(t2[0]),
-      irrigationMinute2:   parseInt(t2[1]),
-      irrigationSecond2:   document.getElementById('irrigationSecond2').value,
+      irrigationHour1:     hour1,
+      irrigationMinute1:   min1,
+      irrigationSecond1:   '0',
+      irrigationHour2:     hour2,
+      irrigationMinute2:   min2,
+      irrigationSecond2:   '0',
     });
 
     try {
@@ -705,12 +791,12 @@
         body: params,
       });
       if (r.ok) {
-        showAlert('Pengaturan berhasil disimpan!', 'success');
+        showAlert('Pengaturan berhasil diperbarui.', 'success');
         setTimeout(() => { fetchStatus(); fetchConfig(); }, 800);
       } else {
-        showAlert('Gagal menyimpan pengaturan', 'error');
+        showAlert('Gagal menyimpan pengaturan.', 'error');
       }
-    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+    } catch(e) { showAlert('Terjadi kesalahan: ' + e.message, 'error'); }
   }
 
   // ─────────────────────────────────
@@ -734,13 +820,13 @@
   async function downloadData() {
     try {
       const r = await fetch('/data/download');
-      if (!r.ok) { showAlert('Tidak ada data tersedia', 'error'); return; }
+      if (!r.ok) { showAlert('Tidak ada data tersedia.', 'error'); return; }
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const a = Object.assign(document.createElement('a'), { href: url, download: 'sensor_data.csv' });
       document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
-      showAlert('Data berhasil didownload!', 'success');
-    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+      showAlert('Data berhasil diunduh.', 'success');
+    } catch(e) { showAlert('Terjadi kesalahan: ' + e.message, 'error'); }
   }
 
   async function deleteData() {
@@ -748,12 +834,12 @@
     try {
       const d = await fetch('/data/delete', { method:'POST' }).then(r => r.json());
       if (d.status === 'success') {
-        showAlert('Semua data berhasil dihapus!', 'success');
+        showAlert('Semua data berhasil dihapus.', 'success');
         setTimeout(fetchDataInfo, 800);
       } else {
-        showAlert('Gagal menghapus data', 'error');
+        showAlert('Gagal menghapus data.', 'error');
       }
-    } catch(e) { showAlert('Error: ' + e.message, 'error'); }
+    } catch(e) { showAlert('Terjadi kesalahan: ' + e.message, 'error'); }
   }
 
   // ─────────────────────────────────
@@ -764,7 +850,7 @@
     try {
       await fetch('/restart', { method:'POST' });
     } catch(e) { /* ESP closes conn on restart */ }
-    showAlert('Sistem sedang restart… halaman akan dimuat ulang dalam 8 detik', 'success');
+    showAlert('Sistem sedang merestart. Halaman akan dimuat ulang dalam beberapa detik.', 'success');
     setTimeout(() => location.reload(), 8000);
   }
 

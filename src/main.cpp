@@ -100,12 +100,27 @@ enum PumpState
     PUMP_ERROR
 };
 
+// Control source: who is actively controlling the pump (priority hierarchy)
+enum ControlSource
+{
+    CONTROL_NONE = 0,
+    MANUAL_OVERRIDE,   // Manual ON/OFF button (highest)
+    SOIL_AUTOMATION,   // Average soil moisture below threshold (Settings)
+    SCHEDULE_AUTOMATION // Scheduled irrigation (lowest)
+};
+
+// Debounce: require avg < threshold for N consecutive checks before starting (prevents rapid cycling)
+#define MOISTURE_DEBOUNCE_COUNT 2
+
 struct PumpControl
 {
     PumpState state = PUMP_IDLE;
     unsigned long startTime = 0;
     unsigned long cooldownStart = 0;
     bool irrigationDone[2] = {false, false};
+    bool manualOverride = false;
+    ControlSource controlSource = CONTROL_NONE;
+    uint8_t moistureStableCount = 0; // debounce for moisture-based start
 } pumpControl;
 
 // ========= STATUS SYSTEM ==========
@@ -145,6 +160,7 @@ void handleStatus();       // untuk menangani permintaan HTTP ke rute "/status",
 void handleConfig();       // untuk menangani permintaan HTTP ke rute "/config", biasanya digunakan untuk menerima data konfigurasi baru dari klien, memperbarui struktur Config, dan menyimpan perubahan ke file
 void handleSettings();     // untuk menangani permintaan HTTP ke rute "/settings", biasanya digunakan untuk menerima data konfigurasi baru dari klien, memperbarui struktur Config, dan menyimpan perubahan ke file
 void handleRestart();      // untuk menangani permintaan HTTP ke rute "/restart", biasanya digunakan untuk mereset sistem secara manual melalui antarmuka web
+void handlePumpControl();  // untuk menangani permintaan HTTP POST ke rute "/pump", mengontrol pompa ON/OFF secara manual
 void handleLogs();         // untuk menangani permintaan HTTP ke rute "/logs", biasanya digunakan untuk mengirimkan log pesan yang disimpan dalam buffer sebagai respons dalam format JSON
 void handleSetDateTime();  // untuk menangani permintaan HTTP ke rute "/setdatetime", biasanya digunakan untuk menerima data tanggal dan waktu baru dari klien, memperbarui RTC dengan nilai tersebut, dan mengirimkan respons status kepada klien
 void handleTime();         // untuk menangani permintaan HTTP ke rute "/time", biasanya digunakan untuk mengirimkan waktu saat ini dari RTC dalam format JSON sebagai respons
@@ -458,6 +474,28 @@ void resetDailyIrrigation(DateTime &currentTime)
     }
 }
 
+// Returns average soil moisture (0-100) or -1 if no valid sensor data
+int getAverageSoilMoisture()
+{
+    int vals[10] = {
+        data.soilMoisture1, data.soilMoisture2, data.soilMoisture3, data.soilMoisture4,
+        data.soilMoisture5, data.soilMoisture6, data.soilMoisture7, data.soilMoisture8,
+        data.soilMoisture9, data.soilMoisture10
+    };
+    int sum = 0, count = 0;
+    for (int i = 0; i < 10; i++)
+    {
+        if (vals[i] >= 0 && vals[i] <= 100)
+        {
+            sum += vals[i];
+            count++;
+        }
+    }
+    if (count == 0)
+        return -1;
+    return sum / count;
+}
+
 void startPump(int scheduleIndex, int hour, int minute, int second)
 {
     pumpControl.state = PUMP_RUNNING;
@@ -465,11 +503,11 @@ void startPump(int scheduleIndex, int hour, int minute, int second)
 
     digitalWrite(RELAY_PIN, RELAY_ON);
 
-    pumpControl.irrigationDone[scheduleIndex] = true;
+    if (scheduleIndex >= 0 && scheduleIndex <= 1)
+        pumpControl.irrigationDone[scheduleIndex] = true;
 
     char logBuffer[80];
     snprintf(logBuffer, sizeof(logBuffer),
-             //  "Pump START (%02d:%02d:%02d, Moisture: %d%%)",
              "Pump START (%02d:%02d:%02d)",
              hour, minute, second);
 
@@ -479,77 +517,101 @@ void startPump(int scheduleIndex, int hour, int minute, int second)
 
 void controlPump(DateTime &currentTime)
 {
-    int currentHour = currentTime.hour();
-    int currentMinute = currentTime.minute();
-    int currentSecond = currentTime.second();
+    int avgSoil = getAverageSoilMoisture();
 
     // ==========================
-    // SCHEDULE 1 - 07:00:00
-    // ==========================
-
-    if (currentHour == config.irrigationHour1 &&
-        currentMinute == config.irrigationMinute1 &&
-        currentSecond >= config.irrigationSecond1 &&
-        !pumpControl.irrigationDone[0] &&
-        pumpControl.state == PUMP_IDLE)
-    {
-        startPump(0, config.irrigationHour1, config.irrigationMinute1, config.irrigationSecond1);
-    }
-
-    // ==========================
-    // SCHEDULE 2 - 16:00:00
-    // ==========================
-
-    if (currentHour == config.irrigationHour2 &&
-        currentMinute == config.irrigationMinute2 &&
-        currentSecond >= config.irrigationSecond2 &&
-        !pumpControl.irrigationDone[1] &&
-        pumpControl.state == PUMP_IDLE)
-    {
-        startPump(1, config.irrigationHour2, config.irrigationMinute2, config.irrigationSecond2);
-    }
-
-    // ==========================
-    // STATE MACHINE
+    // STATE MACHINE: RUNNING -> duration expires -> COOLDOWN -> IDLE
+    // Pump turns OFF after configured duration; cooldown prevents overlapping cycles.
     // ==========================
 
     switch (pumpControl.state)
     {
-
     case PUMP_IDLE:
         break;
 
     case PUMP_RUNNING:
-
         if (millis() - pumpControl.startTime >= config.pumpDuration)
         {
             digitalWrite(RELAY_PIN, RELAY_OFF);
-
             pumpControl.state = PUMP_COOLDOWN;
             pumpControl.cooldownStart = millis();
-
             serialPrintln("Pump STOP");
             logToFile("Pump stopped");
         }
-
         break;
 
     case PUMP_COOLDOWN:
-
         if (millis() - pumpControl.cooldownStart >= COOLDOWN_TIME)
         {
             pumpControl.state = PUMP_IDLE;
-
             serialPrintln("Pump READY");
         }
-
         break;
 
     case PUMP_ERROR:
-
         digitalWrite(RELAY_PIN, RELAY_OFF);
-
         break;
+    }
+
+    // ==========================
+    // PRIORITY 1: Manual override — skip all automation
+    // ==========================
+    if (pumpControl.manualOverride)
+        return;
+
+    if (pumpControl.state != PUMP_IDLE)
+        return;
+
+    // ==========================
+    // PRIORITY 2: Moisture-based (Average Soil Moisture < threshold from Settings)
+    // Uses config.threshold (%) and config.pumpDuration (ms). Cooldown between activations.
+    // ==========================
+    if (avgSoil >= 0 && avgSoil < config.threshold)
+    {
+        pumpControl.moistureStableCount++;
+        if (pumpControl.moistureStableCount >= MOISTURE_DEBOUNCE_COUNT)
+        {
+            pumpControl.moistureStableCount = 0;
+            startPump(-1, 0, 0, 0);
+            pumpControl.controlSource = SOIL_AUTOMATION;
+            char buf[80];
+            snprintf(buf, sizeof(buf), "Pump START (Moisture Auto, avg %d%% < threshold %d%%)", avgSoil, config.threshold);
+            serialPrintln(buf);
+            logToFile(buf);
+        }
+        return;
+    }
+    pumpControl.moistureStableCount = 0;
+
+    // ==========================
+    // PRIORITY 3: Scheduled irrigation (only if manual off and moisture not triggering)
+    // ==========================
+    int currentHour = currentTime.hour();
+    int currentMinute = currentTime.minute();
+    int currentSecond = currentTime.second();
+
+    if (currentHour == config.irrigationHour1 &&
+        currentMinute == config.irrigationMinute1 &&
+        currentSecond >= config.irrigationSecond1 &&
+        !pumpControl.irrigationDone[0])
+    {
+        startPump(0, config.irrigationHour1, config.irrigationMinute1, config.irrigationSecond1);
+        pumpControl.controlSource = SCHEDULE_AUTOMATION;
+        serialPrintln("Pump START (Schedule)");
+        logToFile("Pump started by schedule");
+        return;
+    }
+
+    if (currentHour == config.irrigationHour2 &&
+        currentMinute == config.irrigationMinute2 &&
+        currentSecond >= config.irrigationSecond2 &&
+        !pumpControl.irrigationDone[1])
+    {
+        startPump(1, config.irrigationHour2, config.irrigationMinute2, config.irrigationSecond2);
+        pumpControl.controlSource = SCHEDULE_AUTOMATION;
+        serialPrintln("Pump START (Schedule)");
+        logToFile("Pump started by schedule");
+        return;
     }
 }
 
@@ -584,6 +646,8 @@ void handleStatus()
     doc["soilMoisture9"] = data.soilMoisture9;
     doc["soilMoisture10"] = data.soilMoisture10;
     doc["pumpState"] = pumpControl.state;
+    doc["controlSource"] = (int)pumpControl.controlSource;
+    doc["manualOverride"] = pumpControl.manualOverride;
     doc["threshold"] = config.threshold;
     doc["irrigationHour1"] = config.irrigationHour1;
     doc["irrigationMinute1"] = config.irrigationMinute1;
@@ -713,6 +777,43 @@ void handleSettings()
     else
     {
         server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to save\"}");
+    }
+}
+
+void handlePumpControl()
+{
+    if (!server.hasArg("state"))
+    {
+        server.send(400, "application/json", "{\"status\":\"error\",\"error\":\"Missing state\"}");
+        return;
+    }
+    String state = server.arg("state");
+    state.toLowerCase();
+
+    if (state == "on")
+    {
+        pumpControl.manualOverride = true;
+        pumpControl.controlSource = MANUAL_OVERRIDE;
+        pumpControl.state = PUMP_RUNNING;
+        pumpControl.startTime = millis();
+        digitalWrite(RELAY_PIN, RELAY_ON);
+        serialPrintln("Pump ON (manual)");
+        logToFile("Pump ON (manual)");
+        server.send(200, "application/json", "{\"status\":\"success\",\"pump\":\"on\"}");
+    }
+    else if (state == "off")
+    {
+        pumpControl.manualOverride = true;
+        pumpControl.controlSource = MANUAL_OVERRIDE;
+        pumpControl.state = PUMP_IDLE;
+        digitalWrite(RELAY_PIN, RELAY_OFF);
+        serialPrintln("Pump OFF (manual)");
+        logToFile("Pump OFF (manual)");
+        server.send(200, "application/json", "{\"status\":\"success\",\"pump\":\"off\"}");
+    }
+    else
+    {
+        server.send(400, "application/json", "{\"status\":\"error\",\"error\":\"Invalid state\"}");
     }
 }
 
@@ -972,6 +1073,7 @@ void setupWebServer()
     server.on("/config", HTTP_GET, handleConfig);
     server.on("/settings", HTTP_POST, handleSettings);
     server.on("/restart", HTTP_POST, handleRestart);
+    server.on("/pump", HTTP_POST, handlePumpControl);
     server.on("/logs", HTTP_GET, handleLogs);
     server.on("/time", HTTP_GET, handleTime);
     // server.on("/datetime", HTTP_GET, handleDateTime);
