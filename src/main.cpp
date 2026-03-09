@@ -22,11 +22,14 @@
 #define SOIL8_MOISTURE_PIN 35
 #define SOIL9_MOISTURE_PIN 36
 #define SOIL10_MOISTURE_PIN 39
-#define RELAY_PIN 19
+#define PUMP_PIN 19
+#define SOLENOID_PIN 18
 
 // ========== RELAY CONTROL ==========
-#define RELAY_ON LOW
-#define RELAY_OFF HIGH
+#define PUMP_ON LOW
+#define PUMP_OFF HIGH
+#define SOLENOID_OPEN LOW
+#define SOLENOID_CLOSED HIGH
 
 // ========== SYSTEM CONFIGURATION ==========
 #define CONFIG_FILE "/config.json"
@@ -63,14 +66,25 @@ struct SensorData
     unsigned long lastDataLog = 0;
 } data;
 
+// ========== WATERING MODE ==========
+enum WateringMode
+{
+    MODE_SCHEDULE = 0, // only run on schedule (07:00 & 16:00)
+    MODE_MOISTURE = 1, // only run based on soil moisture threshold
+    MODE_BOTH = 2      // moisture first, schedule as fallback
+};
+
 // ========== CONFIGURATION ==========
 struct Config
 {
-    int threshold = 60;
+    // Moisture threshold (%) for automatic watering mode
+    int threshold = 30;
+    // Active watering strategy (see WateringMode)
+    int wateringMode = MODE_BOTH;
     int dry = 2662;
     int wet = 1269;
     int pumpDuration = 60000;
-    int measurementInterval = 3600000;
+    int measurementInterval = 60000;
     int dataLogInterval = 3600000;
     int irrigationHour1 = 7;   // Jadwal penyiraman 1 - jam
     int irrigationMinute1 = 0; // Jadwal penyiraman 1 - menit
@@ -110,7 +124,7 @@ enum ControlSource
 };
 
 // Debounce: require avg < threshold for N consecutive checks before starting (prevents rapid cycling)
-#define MOISTURE_DEBOUNCE_COUNT 2
+#define MOISTURE_DEBOUNCE_COUNT 5
 
 struct PumpControl
 {
@@ -259,11 +273,14 @@ bool setupLittleFS()
 void createDefaultConfig()
 {
     JsonDocument doc;
-    doc["threshold"] = 60;
+    // Default moisture threshold (%) for automatic watering
+    doc["threshold"] = 30;
+    // Default watering mode: 2 = both (moisture first, then schedule)
+    doc["wateringMode"] = 2;
     doc["dry"] = 2662;
     doc["wet"] = 1269;
     doc["pumpDuration"] = 60000;
-    doc["measurementInterval"] = 3600000;
+    doc["measurementInterval"] = 60000;
     doc["dataLogInterval"] = 3600000;
     doc["irrigationHour1"] = 7;
     doc["irrigationMinute1"] = 0;
@@ -307,6 +324,7 @@ bool loadConfig()
         return false;
 
     config.threshold = doc["threshold"] | config.threshold;
+    config.wateringMode = doc["wateringMode"] | config.wateringMode;
     config.dry = doc["dry"] | config.dry;
     config.wet = doc["wet"] | config.wet;
     config.pumpDuration = doc["pumpDuration"] | config.pumpDuration;
@@ -338,6 +356,7 @@ bool saveConfig()
 
     JsonDocument doc;
     doc["threshold"] = config.threshold;
+    doc["wateringMode"] = config.wateringMode;
     doc["dry"] = config.dry;
     doc["wet"] = config.wet;
     doc["pumpDuration"] = config.pumpDuration;
@@ -406,11 +425,22 @@ void readDHT22()
 //     return map(raw, config.wet, config.dry, 0, 100);
 // }
 
+int readADC(int pin)
+{
+    long sum = 0;
+    for(int i=0; i<10; i++)
+    {
+        sum += analogRead(pin);
+        delay(10);
+    }
+    return sum / 10;
+}
+
 int readSoilPercent(int pin)
 {
-    int raw = analogRead(pin);
+    int raw = readADC(pin);
     raw = constrain(raw, config.wet, config.dry); // sesuaikan hasil kalibrasi
-    return map(raw, config.dry, config.wet, 0, 100);
+    return map(raw, config.dry, config.wet, 0, 50);
 }
 
 void readSoilMoisture()
@@ -501,7 +531,10 @@ void startPump(int scheduleIndex, int hour, int minute, int second)
     pumpControl.state = PUMP_RUNNING;
     pumpControl.startTime = millis();
 
-    digitalWrite(RELAY_PIN, RELAY_ON);
+    digitalWrite(SOLENOID_PIN, SOLENOID_OPEN);
+    delay(500);
+
+    digitalWrite(PUMP_PIN, PUMP_ON);
 
     if (scheduleIndex >= 0 && scheduleIndex <= 1)
         pumpControl.irrigationDone[scheduleIndex] = true;
@@ -532,7 +565,9 @@ void controlPump(DateTime &currentTime)
     case PUMP_RUNNING:
         if (millis() - pumpControl.startTime >= config.pumpDuration)
         {
-            digitalWrite(RELAY_PIN, RELAY_OFF);
+            digitalWrite(PUMP_PIN, PUMP_OFF);
+            delay(500);
+            digitalWrite(SOLENOID_PIN, SOLENOID_CLOSED);
             pumpControl.state = PUMP_COOLDOWN;
             pumpControl.cooldownStart = millis();
             serialPrintln("Pump STOP");
@@ -549,7 +584,7 @@ void controlPump(DateTime &currentTime)
         break;
 
     case PUMP_ERROR:
-        digitalWrite(RELAY_PIN, RELAY_OFF);
+        digitalWrite(PUMP_PIN, PUMP_OFF);
         break;
     }
 
@@ -566,7 +601,12 @@ void controlPump(DateTime &currentTime)
     // PRIORITY 2: Moisture-based (Average Soil Moisture < threshold from Settings)
     // Uses config.threshold (%) and config.pumpDuration (ms). Cooldown between activations.
     // ==========================
-    if (avgSoil >= 0 && avgSoil < config.threshold)
+    bool allowMoisture =
+        (config.wateringMode == MODE_MOISTURE || config.wateringMode == MODE_BOTH);
+    bool allowSchedule =
+        (config.wateringMode == MODE_SCHEDULE || config.wateringMode == MODE_BOTH);
+
+    if (allowMoisture && avgSoil >= 0 && avgSoil < config.threshold)
     {
         pumpControl.moistureStableCount++;
         if (pumpControl.moistureStableCount >= MOISTURE_DEBOUNCE_COUNT)
@@ -586,6 +626,9 @@ void controlPump(DateTime &currentTime)
     // ==========================
     // PRIORITY 3: Scheduled irrigation (only if manual off and moisture not triggering)
     // ==========================
+    if (!allowSchedule)
+        return;
+
     int currentHour = currentTime.hour();
     int currentMinute = currentTime.minute();
     int currentSecond = currentTime.second();
@@ -624,7 +667,7 @@ void handleRoot()
         server.send(404, "text/plain", "File not found");
         return;
     }
-
+    server.sendHeader("Cache-Control", "private, max-age=120");
     server.streamFile(file, "text/html");
     file.close();
 }
@@ -649,6 +692,7 @@ void handleStatus()
     doc["controlSource"] = (int)pumpControl.controlSource;
     doc["manualOverride"] = pumpControl.manualOverride;
     doc["threshold"] = config.threshold;
+    doc["wateringMode"] = config.wateringMode;
     doc["irrigationHour1"] = config.irrigationHour1;
     doc["irrigationMinute1"] = config.irrigationMinute1;
     doc["irrigationSecond1"] = config.irrigationSecond1;
@@ -675,6 +719,7 @@ void handleConfig()
 {
     JsonDocument doc;
     doc["threshold"] = config.threshold;
+    doc["wateringMode"] = config.wateringMode;
     doc["dry"] = config.dry;
     doc["wet"] = config.wet;
     doc["pumpDuration"] = config.pumpDuration;
@@ -719,6 +764,14 @@ void handleSettings()
     {
         unsigned long seconds = server.arg("dataLogInterval").toInt();
         config.dataLogInterval = seconds * 1000UL;
+    }
+    if (server.hasArg("wateringMode"))
+    {
+        int mode = server.arg("wateringMode").toInt();
+        if (mode >= MODE_SCHEDULE && mode <= MODE_BOTH)
+        {
+            config.wateringMode = mode;
+        }
     }
     if (server.hasArg("irrigationHour1"))
     {
@@ -796,7 +849,9 @@ void handlePumpControl()
         pumpControl.controlSource = MANUAL_OVERRIDE;
         pumpControl.state = PUMP_RUNNING;
         pumpControl.startTime = millis();
-        digitalWrite(RELAY_PIN, RELAY_ON);
+        digitalWrite(SOLENOID_PIN, SOLENOID_OPEN);
+        delay(500);
+        digitalWrite(PUMP_PIN, PUMP_ON);
         serialPrintln("Pump ON (manual)");
         logToFile("Pump ON (manual)");
         server.send(200, "application/json", "{\"status\":\"success\",\"pump\":\"on\"}");
@@ -806,10 +861,22 @@ void handlePumpControl()
         pumpControl.manualOverride = true;
         pumpControl.controlSource = MANUAL_OVERRIDE;
         pumpControl.state = PUMP_IDLE;
-        digitalWrite(RELAY_PIN, RELAY_OFF);
+        digitalWrite(PUMP_PIN, PUMP_OFF);
+        digitalWrite(SOLENOID_PIN, SOLENOID_CLOSED);
         serialPrintln("Pump OFF (manual)");
         logToFile("Pump OFF (manual)");
         server.send(200, "application/json", "{\"status\":\"success\",\"pump\":\"off\"}");
+    }
+    else if (state == "auto")
+    {
+        pumpControl.manualOverride = false;
+        pumpControl.controlSource = CONTROL_NONE;
+        pumpControl.state = PUMP_IDLE;
+
+        serialPrintln("Pump AUTO mode");
+        logToFile("Pump AUTO mode");
+
+        server.send(200, "application/json", "{\"status\":\"success\",\"mode\":\"auto\"}");
     }
     else
     {
@@ -1193,8 +1260,10 @@ void setup()
     serialPrintln("Data logging initialized");
 
     // Initialize pump control
-    pinMode(RELAY_PIN, OUTPUT);
-    digitalWrite(RELAY_PIN, RELAY_OFF);
+    pinMode(PUMP_PIN, OUTPUT);
+    pinMode(SOLENOID_PIN, OUTPUT);
+    digitalWrite(PUMP_PIN, PUMP_OFF);
+    digitalWrite(SOLENOID_PIN, SOLENOID_CLOSED);
 
     // Setup network and web server
     setupWiFi();

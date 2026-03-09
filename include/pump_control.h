@@ -4,8 +4,8 @@
 #include <Arduino.h>
 #include <RTClib.h>
 
-#define RELAY_PIN 26
-#define RELAY_ON LOW
+#define PUMP_PIN 26
+#define PUMP_ON LOW
 #define RELAY_OFF HIGH
 #define COOLDOWN_TIME 300000UL
 
