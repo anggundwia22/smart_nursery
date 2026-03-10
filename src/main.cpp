@@ -376,16 +376,6 @@ bool saveConfig()
     size_t bytesWritten = serializeJson(doc, file);
     file.close();
 
-    if (bytesWritten > 0)
-    {
-        char logBuffer[80];
-        snprintf(logBuffer, sizeof(logBuffer),
-                 "Config saved - Schedule: %02d:%02d:%02d & %02d:%02d:%02d",
-                 config.irrigationHour1, config.irrigationMinute1, config.irrigationSecond1,
-                 config.irrigationHour2, config.irrigationMinute2, config.irrigationSecond2);
-        serialPrintln(logBuffer);
-    }
-
     return bytesWritten > 0;
 }
 
@@ -743,97 +733,173 @@ void handleConfig()
 
 void handleSettings()
 {
+    // Simpan nilai lama untuk bandingkan — hanya log yang benar-benar berubah
+    int oldThreshold = config.threshold;
+    int oldDry = config.dry;
+    int oldWet = config.wet;
+    unsigned long oldPumpDuration = config.pumpDuration;
+    unsigned long oldMeasurementInterval = config.measurementInterval;
+    unsigned long oldDataLogInterval = config.dataLogInterval;
+    int oldWateringMode = config.wateringMode;
+    int oldH1 = config.irrigationHour1, oldM1 = config.irrigationMinute1, oldS1 = config.irrigationSecond1;
+    int oldH2 = config.irrigationHour2, oldM2 = config.irrigationMinute2, oldS2 = config.irrigationSecond2;
+
+    bool logSchedule = false;
+    bool logModeWatering = false;
+    bool logThreshold = false;
+    bool logPumpDuration = false;
+    bool logMeasurementInterval = false;
+    bool logDataLogInterval = false;
+    bool logCalibration = false;
+
     if (server.hasArg("threshold"))
     {
-        config.threshold = server.arg("threshold").toInt();
+        int v = server.arg("threshold").toInt();
+        if (v != oldThreshold) logThreshold = true;
+        config.threshold = v;
     }
     if (server.hasArg("dry"))
     {
-        config.dry = server.arg("dry").toInt();
+        int v = server.arg("dry").toInt();
+        if (v != oldDry) logCalibration = true;
+        config.dry = v;
     }
     if (server.hasArg("wet"))
     {
-        config.wet = server.arg("wet").toInt();
+        int v = server.arg("wet").toInt();
+        if (v != oldWet) logCalibration = true;
+        config.wet = v;
     }
     if (server.hasArg("pumpDuration"))
     {
-        config.pumpDuration = server.arg("pumpDuration").toInt();
+        unsigned long v = (unsigned long)server.arg("pumpDuration").toInt();
+        if (v != oldPumpDuration) logPumpDuration = true;
+        config.pumpDuration = v;
     }
     if (server.hasArg("measurementInterval"))
     {
         unsigned long seconds = server.arg("measurementInterval").toInt();
-        config.measurementInterval = max(MINIMUM_INTERVAL, seconds * 1000UL);
+        unsigned long v = max(MINIMUM_INTERVAL, seconds * 1000UL);
+        if (v != oldMeasurementInterval) logMeasurementInterval = true;
+        config.measurementInterval = v;
     }
     if (server.hasArg("dataLogInterval"))
     {
         unsigned long seconds = server.arg("dataLogInterval").toInt();
-        config.dataLogInterval = seconds * 1000UL;
+        unsigned long v = seconds * 1000UL;
+        if (v != oldDataLogInterval) logDataLogInterval = true;
+        config.dataLogInterval = v;
     }
     if (server.hasArg("wateringMode"))
     {
         int mode = server.arg("wateringMode").toInt();
         if (mode >= MODE_SCHEDULE && mode <= MODE_BOTH)
         {
+            if (mode != oldWateringMode) logModeWatering = true;
             config.wateringMode = mode;
         }
     }
     if (server.hasArg("irrigationHour1"))
     {
         int hour = server.arg("irrigationHour1").toInt();
-        if (hour >= 0 && hour <= 23)
-        {
-            config.irrigationHour1 = hour;
-        }
+        if (hour >= 0 && hour <= 23) config.irrigationHour1 = hour;
     }
     if (server.hasArg("irrigationMinute1"))
     {
         int minute = server.arg("irrigationMinute1").toInt();
-        if (minute >= 0 && minute <= 59)
-        {
-            config.irrigationMinute1 = minute;
-        }
+        if (minute >= 0 && minute <= 59) config.irrigationMinute1 = minute;
     }
     if (server.hasArg("irrigationSecond1"))
     {
         int second = server.arg("irrigationSecond1").toInt();
-        if (second >= 0 && second <= 59)
-        {
-            config.irrigationSecond1 = second;
-        }
+        if (second >= 0 && second <= 59) config.irrigationSecond1 = second;
     }
     if (server.hasArg("irrigationHour2"))
     {
         int hour = server.arg("irrigationHour2").toInt();
-        if (hour >= 0 && hour <= 23)
-        {
-            config.irrigationHour2 = hour;
-        }
+        if (hour >= 0 && hour <= 23) config.irrigationHour2 = hour;
     }
     if (server.hasArg("irrigationMinute2"))
     {
         int minute = server.arg("irrigationMinute2").toInt();
-        if (minute >= 0 && minute <= 59)
-        {
-            config.irrigationMinute2 = minute;
-        }
+        if (minute >= 0 && minute <= 59) config.irrigationMinute2 = minute;
     }
     if (server.hasArg("irrigationSecond2"))
     {
         int second = server.arg("irrigationSecond2").toInt();
-        if (second >= 0 && second <= 59)
-        {
-            config.irrigationSecond2 = second;
-        }
+        if (second >= 0 && second <= 59) config.irrigationSecond2 = second;
     }
+
+    if (config.irrigationHour1 != oldH1 || config.irrigationMinute1 != oldM1 || config.irrigationSecond1 != oldS1 ||
+        config.irrigationHour2 != oldH2 || config.irrigationMinute2 != oldM2 || config.irrigationSecond2 != oldS2)
+        logSchedule = true;
 
     if (saveConfig())
     {
         server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Settings saved\"}");
-        serialPrintln("Settings updated successfully");
+
+        char logBuf[128];
+        if (logSchedule)
+        {
+            snprintf(logBuf, sizeof(logBuf),
+                     "Update schedule ('%02d:%02d:%02d & %02d:%02d:%02d')",
+                     config.irrigationHour1, config.irrigationMinute1, config.irrigationSecond1,
+                     config.irrigationHour2, config.irrigationMinute2, config.irrigationSecond2);
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (logModeWatering)
+        {
+            const char *modeStr = config.wateringMode == MODE_SCHEDULE ? "Schedule" :
+                                 config.wateringMode == MODE_MOISTURE ? "Moisture" : "Both";
+            snprintf(logBuf, sizeof(logBuf), "Update mode watering ('%s')", modeStr);
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (logThreshold)
+        {
+            snprintf(logBuf, sizeof(logBuf), "Update threshold ('%d%%')", config.threshold);
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (logPumpDuration)
+        {
+            snprintf(logBuf, sizeof(logBuf), "Update pump duration ('%lus')",
+                     (unsigned long)(config.pumpDuration / 1000));
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (logMeasurementInterval)
+        {
+            snprintf(logBuf, sizeof(logBuf), "Update measurement interval ('%lus')",
+                     (unsigned long)(config.measurementInterval / 1000));
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (logDataLogInterval)
+        {
+            snprintf(logBuf, sizeof(logBuf), "Update data log interval ('%lus')",
+                     (unsigned long)(config.dataLogInterval / 1000));
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (logCalibration)
+        {
+            snprintf(logBuf, sizeof(logBuf), "Update calibration ('dry %d, wet %d')",
+                     config.dry, config.wet);
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (!logSchedule && !logModeWatering && !logThreshold && !logPumpDuration &&
+            !logMeasurementInterval && !logDataLogInterval && !logCalibration)
+        {
+            serialPrintln("Settings saved (no changes)");
+        }
     }
     else
     {
         server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to save\"}");
+        serialPrintln("Settings save failed");
     }
 }
 
