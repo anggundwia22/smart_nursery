@@ -1755,21 +1755,9 @@
           return;
         }
 
-        // The most recent log entry timestamp ≈ ESP32 millis "now".
-        // We know RTC "now" locally, so we can convert every millis
-        // to a real wall-clock time:
-        //   realTime(entry) = rtcNow - (latestMillis - entry.millis)
-        const rtcNow = (rtcMs !== null)
-          ? rtcMs + (Date.now() - rtcFetchedAt)
-          : null;
-        const latestMillis = Math.max(...d.logs.map(l => l.timestamp));
-
+        // Show millis (uptime ms) as in Serial Monitor, not wall-clock time
         function logTime(ms) {
-          if (rtcNow === null) return millisToHMS(ms); // fallback to uptime
-          const entryRtc = new Date(rtcNow - (latestMillis - ms));
-          return pad(entryRtc.getHours()) + ':' +
-            pad(entryRtc.getMinutes()) + ':' +
-            pad(entryRtc.getSeconds());
+          return '[' + ms + ']';
         }
 
         box.innerHTML = d.logs.map(l =>

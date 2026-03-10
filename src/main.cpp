@@ -191,9 +191,13 @@ void controlPump(DateTime &currentTime);
 // ========== LOGGING FUNCTIONS ==========
 void serialPrintln(const char *message)
 {
+    unsigned long ms = millis();
+    Serial.print("[");
+    Serial.print(ms);
+    Serial.print("] ");
     Serial.println(message);
 
-    serialBuffer[serialBufferIndex].timestamp = millis();
+    serialBuffer[serialBufferIndex].timestamp = ms;
     strncpy(serialBuffer[serialBufferIndex].message, message,
             sizeof(serialBuffer[0].message) - 1);
     serialBuffer[serialBufferIndex].message[sizeof(serialBuffer[0].message) - 1] = '\0';
@@ -228,22 +232,39 @@ void logToFile(const char *message)
 // ========== INITIALIZATION FUNCTIONS ==========
 void initRTC()
 {
+    // Wire.begin();
+
+    // status.rtcInitialized = rtc.begin();
+
+    // if (!status.rtcInitialized)
+    // {
+    //     serialPrintln("RTC not detected");
+    //     return;
+    // }
+
+    // if (rtc.lostPower())
+    // {
+    //     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // }
+
+    // serialPrintln("RTC initialized successfully");
+
     Wire.begin();
-
-    status.rtcInitialized = rtc.begin();
-
-    if (!status.rtcInitialized)
+    if (!rtc.begin())
     {
-        serialPrintln("RTC not detected");
-        return;
+        serialPrintln("RTC not found");
+        status.rtcInitialized = false;
     }
-
-    if (rtc.lostPower())
+    else
     {
-        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+        status.rtcInitialized = true;
+        if (rtc.lostPower())
+        {
+            serialPrintln("RTC lost power, setting time!");
+            rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+        }
+        serialPrintln("RTC initialized successfully");
     }
-
-    serialPrintln("RTC initialized successfully");
 }
 
 void initWatchdog()
@@ -473,7 +494,7 @@ void readLuxMeter()
 {
     if (!status.bh1750OK)
     {
-        Serial.println("BH1750 not available");
+        serialPrintln("BH1750 not available");
         return;
     }
 
@@ -739,31 +760,41 @@ void handleConfig()
 
 void handleSettings()
 {
+    bool scheduleChanged = false;
+    bool sensorPumpChanged = false;
+    bool calibrationChanged = false;
+
     if (server.hasArg("threshold"))
     {
         config.threshold = server.arg("threshold").toInt();
+        sensorPumpChanged = true;
     }
     if (server.hasArg("dry"))
     {
         config.dry = server.arg("dry").toInt();
+        calibrationChanged = true;
     }
     if (server.hasArg("wet"))
     {
         config.wet = server.arg("wet").toInt();
+        calibrationChanged = true;
     }
     if (server.hasArg("pumpDuration"))
     {
         config.pumpDuration = server.arg("pumpDuration").toInt();
+        sensorPumpChanged = true;
     }
     if (server.hasArg("measurementInterval"))
     {
         unsigned long seconds = server.arg("measurementInterval").toInt();
         config.measurementInterval = max(MINIMUM_INTERVAL, seconds * 1000UL);
+        sensorPumpChanged = true;
     }
     if (server.hasArg("dataLogInterval"))
     {
         unsigned long seconds = server.arg("dataLogInterval").toInt();
         config.dataLogInterval = seconds * 1000UL;
+        sensorPumpChanged = true;
     }
     if (server.hasArg("wateringMode"))
     {
@@ -771,6 +802,7 @@ void handleSettings()
         if (mode >= MODE_SCHEDULE && mode <= MODE_BOTH)
         {
             config.wateringMode = mode;
+            sensorPumpChanged = true;
         }
     }
     if (server.hasArg("irrigationHour1"))
@@ -779,6 +811,7 @@ void handleSettings()
         if (hour >= 0 && hour <= 23)
         {
             config.irrigationHour1 = hour;
+            scheduleChanged = true;
         }
     }
     if (server.hasArg("irrigationMinute1"))
@@ -787,6 +820,7 @@ void handleSettings()
         if (minute >= 0 && minute <= 59)
         {
             config.irrigationMinute1 = minute;
+            scheduleChanged = true;
         }
     }
     if (server.hasArg("irrigationSecond1"))
@@ -795,6 +829,7 @@ void handleSettings()
         if (second >= 0 && second <= 59)
         {
             config.irrigationSecond1 = second;
+            scheduleChanged = true;
         }
     }
     if (server.hasArg("irrigationHour2"))
@@ -803,6 +838,7 @@ void handleSettings()
         if (hour >= 0 && hour <= 23)
         {
             config.irrigationHour2 = hour;
+            scheduleChanged = true;
         }
     }
     if (server.hasArg("irrigationMinute2"))
@@ -811,6 +847,7 @@ void handleSettings()
         if (minute >= 0 && minute <= 59)
         {
             config.irrigationMinute2 = minute;
+            scheduleChanged = true;
         }
     }
     if (server.hasArg("irrigationSecond2"))
@@ -819,17 +856,51 @@ void handleSettings()
         if (second >= 0 && second <= 59)
         {
             config.irrigationSecond2 = second;
+            scheduleChanged = true;
         }
     }
 
     if (saveConfig())
     {
         server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Settings saved\"}");
-        serialPrintln("Settings updated successfully");
+
+        char logBuf[120];
+        if (scheduleChanged)
+        {
+            snprintf(logBuf, sizeof(logBuf),
+                     "Settings: Schedule updated -> %02d:%02d:%02d & %02d:%02d:%02d",
+                     config.irrigationHour1, config.irrigationMinute1, config.irrigationSecond1,
+                     config.irrigationHour2, config.irrigationMinute2, config.irrigationSecond2);
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (sensorPumpChanged)
+        {
+            const char *modeStr = config.wateringMode == MODE_SCHEDULE ? "Schedule" :
+                                 config.wateringMode == MODE_MOISTURE ? "Moisture" : "Both";
+            snprintf(logBuf, sizeof(logBuf),
+                     "Settings: Sensor & pump updated -> threshold %d%%, pump %lus, mode %s",
+                     config.threshold, (unsigned long)(config.pumpDuration / 1000), modeStr);
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (calibrationChanged)
+        {
+            snprintf(logBuf, sizeof(logBuf),
+                     "Settings: Calibration updated -> dry %d, wet %d",
+                     config.dry, config.wet);
+            serialPrintln(logBuf);
+            logToFile(logBuf);
+        }
+        if (!scheduleChanged && !sensorPumpChanged && !calibrationChanged)
+        {
+            serialPrintln("Settings saved (no changes)");
+        }
     }
     else
     {
         server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to save\"}");
+        serialPrintln("Settings save failed");
     }
 }
 
