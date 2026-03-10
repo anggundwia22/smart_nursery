@@ -135,6 +135,7 @@ struct PumpControl
     bool manualOverride = false;
     ControlSource controlSource = CONTROL_NONE;
     uint8_t moistureStableCount = 0; // debounce for moisture-based start
+    int pumpRunsToday = 0;           // jumlah penyiraman hari ini, reset tiap ganti hari
 } pumpControl;
 
 // ========= STATUS SYSTEM ==========
@@ -487,6 +488,7 @@ void resetDailyIrrigation(DateTime &currentTime)
         lastDay = currentTime.day();
         pumpControl.irrigationDone[0] = false;
         pumpControl.irrigationDone[1] = false;
+        pumpControl.pumpRunsToday = 0;
 
         char logBuffer[80];
         snprintf(logBuffer, sizeof(logBuffer),
@@ -524,6 +526,7 @@ void startPump(int scheduleIndex, int hour, int minute, int second)
 {
     pumpControl.state = PUMP_RUNNING;
     pumpControl.startTime = millis();
+    pumpControl.pumpRunsToday++;
 
     digitalWrite(SOLENOID_PIN, SOLENOID_OPEN);
     delay(500);
@@ -919,6 +922,7 @@ void handlePumpControl()
         pumpControl.controlSource = MANUAL_OVERRIDE;
         pumpControl.state = PUMP_RUNNING;
         pumpControl.startTime = millis();
+        pumpControl.pumpRunsToday++;
         digitalWrite(SOLENOID_PIN, SOLENOID_OPEN);
         delay(500);
         digitalWrite(PUMP_PIN, PUMP_ON);
@@ -1006,7 +1010,7 @@ void initDataLog()
             serialPrintln("Failed to create data log file");
             return;
         }
-        file.println("DateTime,Temperature(C),Humidity(%),Lux,SoilMoisture1(%),SoilMoisture2(%),SoilMoisture3(%),SoilMoisture4(%),SoilMoisture5(%),SoilMoisture6(%),SoilMoisture7(%),SoilMoisture8(%),SoilMoisture9(%),SoilMoisture10(%),PumpCondition");
+        file.println("DateTime,Temperature(C),Humidity(%),Lux,SoilMoisture1(%),SoilMoisture2(%),SoilMoisture3(%),SoilMoisture4(%),SoilMoisture5(%),SoilMoisture6(%),SoilMoisture7(%),SoilMoisture8(%),SoilMoisture9(%),SoilMoisture10(%),WateringCountToday");
         file.close();
         serialPrintln("Data log file created with header");
     }
@@ -1032,8 +1036,9 @@ void saveDataRecord()
     }
 
     DateTime now = rtc.now();
-    char buffer[200];
-    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s",
+    int avgSoil = getAverageSoilMoisture();
+    char buffer[220];
+    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
              now.year(), now.month(), now.day(),
              now.hour(), now.minute(), now.second(),
              data.temperature,
@@ -1049,19 +1054,13 @@ void saveDataRecord()
              data.soilMoisture8,
              data.soilMoisture9,
              data.soilMoisture10,
-             (pumpControl.state == PUMP_RUNNING) ? "ON" : "OFF");
+             pumpControl.pumpRunsToday);
 
     file.println(buffer);
     file.close();
-
-    // char logMsg[120];
-    // snprintf(logMsg, sizeof(logMsg), "Data saved: T=%.2f°C H=%.2f%% SM1=%d%% SM2=%d%% SM3=%d%% SM4=%d%%",
-    //          data.temperature, data.humidity, data.soilMoisture1, data.soilMoisture2, data.soilMoisture3, data.soilMoisture4);
-    // serialPrintln(logMsg);
-
     char logMsg[120];
-    snprintf(logMsg, sizeof(logMsg), "Data saved: Temperature=%.2f°C Humidity=%.2f%% Lux=%.2f SM1=%d%%",
-             data.temperature, data.humidity, data.lux, data.soilMoisture10);
+    snprintf(logMsg, sizeof(logMsg), "Data saved: Temperature=%.2f°C Humidity=%.2f%% Lux=%.2f AvgSoil=%d%%",
+             data.temperature, data.humidity, data.lux, avgSoil);
     serialPrintln(logMsg);
 }
 
