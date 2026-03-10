@@ -1297,7 +1297,10 @@
     <div class="card">
       <div class="chard">
         <div class="ctitle">📋 Serial Log</div>
-        <button class="btn btn-g" onclick="fetchLogs()" style="padding:6px 12px;font-size:.75rem;">↻ Refresh</button>
+        <span style="display:inline-flex; gap:8px;">
+          <button class="btn btn-g" onclick="fetchLogs()" style="padding:6px 12px;font-size:.75rem;">↻ Refresh</button>
+          <button class="btn btn-g" onclick="clearLogs()" style="padding:6px 12px;font-size:.75rem;">🗑 Delete</button>
+        </span>
       </div>
       <div class="logbox" id="logbox">
         <div class="logempty">Memuat log…</div>
@@ -1766,6 +1769,20 @@
         box.scrollTop = box.scrollHeight;
       } catch (e) {
         document.getElementById('logbox').innerHTML = '<div class="logempty">Gagal memuat log</div>';
+      }
+    }
+
+    async function clearLogs() {
+      try {
+        const r = await fetch('/logs/clear', { method: 'POST' });
+        if (r.ok) {
+          showAlert('Log aktivitas telah dihapus.', 'success');
+          document.getElementById('logbox').innerHTML = '<div class="logempty">Tidak ada log tersedia</div>';
+        } else {
+          showAlert('Gagal menghapus log.', 'error');
+        }
+      } catch (e) {
+        showAlert('Gagal menghapus log: ' + e.message, 'error');
       }
     }
 

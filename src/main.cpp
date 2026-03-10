@@ -177,6 +177,7 @@ void handleSettings();     // untuk menangani permintaan HTTP ke rute "/settings
 void handleRestart();      // untuk menangani permintaan HTTP ke rute "/restart", biasanya digunakan untuk mereset sistem secara manual melalui antarmuka web
 void handlePumpControl();  // untuk menangani permintaan HTTP POST ke rute "/pump", mengontrol pompa ON/OFF secara manual
 void handleLogs();         // untuk menangani permintaan HTTP ke rute "/logs", biasanya digunakan untuk mengirimkan log pesan yang disimpan dalam buffer sebagai respons dalam format JSON
+void handleLogsClear();    // untuk mengosongkan buffer log (POST /logs/clear)
 void handleSetDateTime();  // untuk menangani permintaan HTTP ke rute "/setdatetime", biasanya digunakan untuk menerima data tanggal dan waktu baru dari klien, memperbarui RTC dengan nilai tersebut, dan mengirimkan respons status kepada klien
 void handleTime();         // untuk menangani permintaan HTTP ke rute "/time", biasanya digunakan untuk mengirimkan waktu saat ini dari RTC dalam format JSON sebagai respons
 void handleDateTime();     // untuk menangani permintaan HTTP ke rute "/datetime", biasanya digunakan untuk menerima data tanggal dan waktu baru dari klien, memperbarui RTC dengan nilai tersebut, dan mengirimkan respons status kepada klien
@@ -986,6 +987,14 @@ void handleLogs()
     server.send(200, "application/json", response);
 }
 
+void handleLogsClear()
+{
+    serialBufferIndex = 0;
+    totalMessages = 0;
+    serialPrintln("Log buffer cleared");
+    server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Log cleared\"}");
+}
+
 // ========== WIFI SETUP ==========
 void setupWiFi()
 {
@@ -1211,6 +1220,7 @@ void setupWebServer()
     server.on("/restart", HTTP_POST, handleRestart);
     server.on("/pump", HTTP_POST, handlePumpControl);
     server.on("/logs", HTTP_GET, handleLogs);
+    server.on("/logs/clear", HTTP_POST, handleLogsClear);
     server.on("/time", HTTP_GET, handleTime);
     // server.on("/datetime", HTTP_GET, handleDateTime);
     server.on("/datetime", HTTP_ANY, []() {
