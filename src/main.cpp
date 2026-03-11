@@ -12,10 +12,7 @@
 // ========== PIN CONFIGURATION ==========
 #define DHTPIN 4
 #define DHTTYPE DHT22
-#define SOIL1_MOISTURE_PIN 12
-#define SOIL2_MOISTURE_PIN 25
-#define SOIL3_MOISTURE_PIN 26
-#define SOIL4_MOISTURE_PIN 27
+// Soil 1-4 are read by the slave ESP32 via UART - no local pins needed
 #define SOIL5_MOISTURE_PIN 32
 #define SOIL6_MOISTURE_PIN 33
 #define SOIL7_MOISTURE_PIN 34
@@ -24,6 +21,16 @@
 #define SOIL10_MOISTURE_PIN 39
 #define PUMP_PIN 19
 #define SOLENOID_PIN 18
+
+// ========== SLAVE ESP UART ==========//
+// Wiring: Main GPIO16 (RX2) <--- Slave GPIO17 (TX2)
+//         Main GPIO17 (TX2) ---> Slave GPIO16 (RX2)
+//         GND --- GND
+#define SLAVE_SERIAL Serial2
+#define SLAVE_BAUD 115200
+#define SLAVE_RX_PIN 16
+#define SLAVE_TX_PIN 17
+#define SLAVE_TIMEOUT 5000UL // ms - mark soil 1 - 4 if no data received
 
 // ========== RELAY CONTROL ==========
 #define PUMP_ON LOW
@@ -45,6 +52,10 @@ DHT dht(DHTPIN, DHTTYPE);
 RTC_DS3231 rtc;
 BH1750 lightMeter;
 WebServer server(80);
+
+// ========== SLAVE UART STATE ==========//
+unsigned long lastSlaveReceived = 0; // timestamp of last valid packet from slave
+String slaveBuffer = "";             // accumulates incoming chars untul '\n'
 
 // ========== SENSOR DATA ==========
 struct SensorData
@@ -118,8 +129,8 @@ enum PumpState
 enum ControlSource
 {
     CONTROL_NONE = 0,
-    MANUAL_OVERRIDE,   // Manual ON/OFF button (highest)
-    SOIL_AUTOMATION,   // Average soil moisture below threshold (Settings)
+    MANUAL_OVERRIDE,    // Manual ON/OFF button (highest)
+    SOIL_AUTOMATION,    // Average soil moisture below threshold (Settings)
     SCHEDULE_AUTOMATION // Scheduled irrigation (lowest)
 };
 
@@ -162,7 +173,9 @@ bool loadConfig();                       // untuk memuat konfigurasi dari file d
 bool saveConfig();                       // untuk menyimpan konfigurasi saat ini ke file dalam format JSON
 void validateMeasurementInterval();      // untuk memastikan interval pengukuran tidak kurang dari batas minimum
 
-void readDHT22(); // untuk membaca data suhu dan kelembapan dari sensor DHT22, serta menyimpan hasilnya ke struktur SensorData
+void pollSlaveUART();         // untuk memeriksa data dari slave ESP32 melalui UART, memperbarui kelembaban tanah 1-4, dan menandai sensor sebagai tidak valid jika timeout tercapai
+void readDHT22();             // untuk membaca data suhu dan kelembapan dari sensor DHT22, serta menyimpan hasilnya ke struktur SensorData
+int readADC(int pin);         // untuk membaca nilai mentah dari pin ADC, melakukan pembacaan berulang untuk stabilisasi, dan mengembalikan rata-rata
 int readSoilPercent(int pin); // untuk membaca data kelembaban tanah dari sensor menggunakan ADC, kemudian mengkonversi nilai tersebut menjadi persentase berdasarkan kalibrasi ADC_DRY dan ADC_WET
 void readSoilMoisture();      // untuk membaca kelembaban tanah dari semua sensor yang terhubung dan menyimpan hasilnya ke struktur SensorData
 void initLuxMeter();          // untuk inisialisasi sensor cahaya BH1750
@@ -424,7 +437,7 @@ void readDHT22()
 int readADC(int pin)
 {
     long sum = 0;
-    for(int i=0; i<10; i++)
+    for (int i = 0; i < 10; i++)
     {
         sum += analogRead(pin);
         delay(10);
@@ -439,12 +452,86 @@ int readSoilPercent(int pin)
     return map(raw, config.dry, config.wet, 0, 50);
 }
 
+// Called every loop() -reads any incoming bytes from slave and parses complete lines
+// void pollSlaveUART()
+// {
+//     static unsigned long lastDataTime = 0;
+//     while (SLAVE_SERIAL.available())
+//     {
+//         String line = SLAVE_SERIAL.readStringUntil('\n');
+//         line.trim();
+//         if (line.startsWith("SOIL:"))
+//         {
+//             // Expected format: SOIL:val1,val2,val3,val4
+//             int vals[4] = {0};
+//             sscanf(line.c_str(), "SOIL:%d,%d,%d,%d", &vals[0], &vals[1], &vals[2], &vals[3]);
+//             data.soilMoisture1 = vals[0];
+//             data.soilMoisture2 = vals[1];
+//             data.soilMoisture3 = vals[2];
+//             data.soilMoisture4 = vals[3];
+//             lastDataTime = millis();
+//         }
+//     }
+
+//     // If no data received for a while, mark soil 1-4 as invalid
+//     if (millis() - lastDataTime > SLAVE_TIMEOUT)
+//     {
+//         data.soilMoisture1 = -1;
+//         data.soilMoisture2 = -1;
+//         data.soilMoisture3 = -1;
+//         data.soilMoisture4 = -1;
+//     }
+// }
+
+void pollSlaveUART()
+{
+    while (SLAVE_SERIAL.available())
+    {
+        char c = (char)SLAVE_SERIAL.read();
+        if (c == '\n')
+        {
+            // Complete line received - parse JSON
+            // Expected format: {"s1":42, "s2":38, "s3":55, "s4":61}
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, slaveBuffer);
+            if (!error)
+            {
+                data.soilMoisture1 = doc["s1"] | data.soilMoisture1;
+                data.soilMoisture2 = doc["s2"] | data.soilMoisture2;
+                data.soilMoisture3 = doc["s3"] | data.soilMoisture3;
+                data.soilMoisture4 = doc["s4"] | data.soilMoisture4;
+                lastSlaveReceived = millis();
+            }
+            else
+            {
+                serialPrintln("Slave parse error");
+            }
+            slaveBuffer = "";
+        }
+        else
+        {
+            if (slaveBuffer.length() < 128) // guard againts runway buffer
+                slaveBuffer += c;
+        }
+    }
+
+    // If slave has been silent too long, flag soil 1-4 as unavailable
+    if (lastSlaveReceived > 0 && millis() - lastSlaveReceived > SLAVE_TIMEOUT) 
+    {
+        data.soilMoisture1 = -1;
+        data.soilMoisture2 = -1;
+        data.soilMoisture3 = -1;
+        data.soilMoisture4 = -1;
+        serialPrintln("WARNING: Slave ESP timeout - soil 1-4 unavailable");
+        lastSlaveReceived = millis(); // suppress repeat log for another SLAVE_TIMEOUT ms
+    }
+}
+
+
 void readSoilMoisture()
 {
-    data.soilMoisture1 = readSoilPercent(SOIL1_MOISTURE_PIN);
-    data.soilMoisture2 = readSoilPercent(SOIL2_MOISTURE_PIN);
-    data.soilMoisture3 = readSoilPercent(SOIL3_MOISTURE_PIN);
-    data.soilMoisture4 = readSoilPercent(SOIL4_MOISTURE_PIN);
+    // Soil 1-4: received from slave ESP via UART (see pollSlaveUART)
+    // Soil 5-10:  read locally
     data.soilMoisture5 = readSoilPercent(SOIL5_MOISTURE_PIN);
     data.soilMoisture6 = readSoilPercent(SOIL6_MOISTURE_PIN);
     data.soilMoisture7 = readSoilPercent(SOIL7_MOISTURE_PIN);
@@ -507,8 +594,7 @@ int getAverageSoilMoisture()
     int vals[10] = {
         data.soilMoisture1, data.soilMoisture2, data.soilMoisture3, data.soilMoisture4,
         data.soilMoisture5, data.soilMoisture6, data.soilMoisture7, data.soilMoisture8,
-        data.soilMoisture9, data.soilMoisture10
-    };
+        data.soilMoisture9, data.soilMoisture10};
     int sum = 0, count = 0;
     for (int i = 0; i < 10; i++)
     {
@@ -759,39 +845,45 @@ void handleSettings()
     if (server.hasArg("threshold"))
     {
         int v = server.arg("threshold").toInt();
-        if (v != oldThreshold) logThreshold = true;
+        if (v != oldThreshold)
+            logThreshold = true;
         config.threshold = v;
     }
     if (server.hasArg("dry"))
     {
         int v = server.arg("dry").toInt();
-        if (v != oldDry) logCalibration = true;
+        if (v != oldDry)
+            logCalibration = true;
         config.dry = v;
     }
     if (server.hasArg("wet"))
     {
         int v = server.arg("wet").toInt();
-        if (v != oldWet) logCalibration = true;
+        if (v != oldWet)
+            logCalibration = true;
         config.wet = v;
     }
     if (server.hasArg("pumpDuration"))
     {
         unsigned long v = (unsigned long)server.arg("pumpDuration").toInt();
-        if (v != oldPumpDuration) logPumpDuration = true;
+        if (v != oldPumpDuration)
+            logPumpDuration = true;
         config.pumpDuration = v;
     }
     if (server.hasArg("measurementInterval"))
     {
         unsigned long seconds = server.arg("measurementInterval").toInt();
         unsigned long v = max(MINIMUM_INTERVAL, seconds * 1000UL);
-        if (v != oldMeasurementInterval) logMeasurementInterval = true;
+        if (v != oldMeasurementInterval)
+            logMeasurementInterval = true;
         config.measurementInterval = v;
     }
     if (server.hasArg("dataLogInterval"))
     {
         unsigned long seconds = server.arg("dataLogInterval").toInt();
         unsigned long v = seconds * 1000UL;
-        if (v != oldDataLogInterval) logDataLogInterval = true;
+        if (v != oldDataLogInterval)
+            logDataLogInterval = true;
         config.dataLogInterval = v;
     }
     if (server.hasArg("wateringMode"))
@@ -799,39 +891,46 @@ void handleSettings()
         int mode = server.arg("wateringMode").toInt();
         if (mode >= MODE_SCHEDULE && mode <= MODE_BOTH)
         {
-            if (mode != oldWateringMode) logModeWatering = true;
+            if (mode != oldWateringMode)
+                logModeWatering = true;
             config.wateringMode = mode;
         }
     }
     if (server.hasArg("irrigationHour1"))
     {
         int hour = server.arg("irrigationHour1").toInt();
-        if (hour >= 0 && hour <= 23) config.irrigationHour1 = hour;
+        if (hour >= 0 && hour <= 23)
+            config.irrigationHour1 = hour;
     }
     if (server.hasArg("irrigationMinute1"))
     {
         int minute = server.arg("irrigationMinute1").toInt();
-        if (minute >= 0 && minute <= 59) config.irrigationMinute1 = minute;
+        if (minute >= 0 && minute <= 59)
+            config.irrigationMinute1 = minute;
     }
     if (server.hasArg("irrigationSecond1"))
     {
         int second = server.arg("irrigationSecond1").toInt();
-        if (second >= 0 && second <= 59) config.irrigationSecond1 = second;
+        if (second >= 0 && second <= 59)
+            config.irrigationSecond1 = second;
     }
     if (server.hasArg("irrigationHour2"))
     {
         int hour = server.arg("irrigationHour2").toInt();
-        if (hour >= 0 && hour <= 23) config.irrigationHour2 = hour;
+        if (hour >= 0 && hour <= 23)
+            config.irrigationHour2 = hour;
     }
     if (server.hasArg("irrigationMinute2"))
     {
         int minute = server.arg("irrigationMinute2").toInt();
-        if (minute >= 0 && minute <= 59) config.irrigationMinute2 = minute;
+        if (minute >= 0 && minute <= 59)
+            config.irrigationMinute2 = minute;
     }
     if (server.hasArg("irrigationSecond2"))
     {
         int second = server.arg("irrigationSecond2").toInt();
-        if (second >= 0 && second <= 59) config.irrigationSecond2 = second;
+        if (second >= 0 && second <= 59)
+            config.irrigationSecond2 = second;
     }
 
     if (config.irrigationHour1 != oldH1 || config.irrigationMinute1 != oldM1 || config.irrigationSecond1 != oldS1 ||
@@ -854,8 +953,8 @@ void handleSettings()
         }
         if (logModeWatering)
         {
-            const char *modeStr = config.wateringMode == MODE_SCHEDULE ? "Schedule" :
-                                 config.wateringMode == MODE_MOISTURE ? "Moisture" : "Both";
+            const char *modeStr = config.wateringMode == MODE_SCHEDULE ? "Schedule" : config.wateringMode == MODE_MOISTURE ? "Moisture"
+                                                                                                                           : "Both";
             snprintf(logBuf, sizeof(logBuf), "Update mode watering ('%s')", modeStr);
             serialPrintln(logBuf);
             logToFile(logBuf);
@@ -1185,12 +1284,12 @@ void handleSetDateTime()
         return;
     }
 
-    int y  = server.arg("year").toInt();
+    int y = server.arg("year").toInt();
     int mo = server.arg("month").toInt();
-    int d  = server.arg("day").toInt();
-    int h  = server.arg("hour").toInt();
+    int d = server.arg("day").toInt();
+    int h = server.arg("hour").toInt();
     int mi = server.arg("minute").toInt();
-    int s  = server.arg("second").toInt();
+    int s = server.arg("second").toInt();
 
     if (y < 2000 || y > 2099 || mo < 1 || mo > 12 || d < 1 || d > 31 ||
         h < 0 || h > 23 || mi < 0 || mi > 59 || s < 0 || s > 59)
@@ -1223,12 +1322,12 @@ void setupWebServer()
     server.on("/logs/clear", HTTP_POST, handleLogsClear);
     server.on("/time", HTTP_GET, handleTime);
     // server.on("/datetime", HTTP_GET, handleDateTime);
-    server.on("/datetime", HTTP_ANY, []() {
+    server.on("/datetime", HTTP_ANY, []()
+              {
         if (server.method() == HTTP_POST)
             handleSetDateTime();
         else
-            handleDateTime();
-    });
+            handleDateTime(); });
 
     // server.on("/serial", HTTP_GET, handleSerial);
 
@@ -1285,10 +1384,7 @@ void setup()
     serialPrintln("Starting Smart Nursery System...");
 
     analogReadResolution(12);                              // Atur resolusi ADC menjadi 12 bit (0-4095)
-    analogSetPinAttenuation(SOIL1_MOISTURE_PIN, ADC_11db); // Atur attenuasi untuk rentang pengukuran yang lebih luas (0-3.3V)
-    analogSetPinAttenuation(SOIL2_MOISTURE_PIN, ADC_11db);
-    analogSetPinAttenuation(SOIL3_MOISTURE_PIN, ADC_11db);
-    analogSetPinAttenuation(SOIL4_MOISTURE_PIN, ADC_11db);
+    // Soil 1-4 handle by slave ESP via UART - no local adc setup needed
     analogSetPinAttenuation(SOIL5_MOISTURE_PIN, ADC_11db);
     analogSetPinAttenuation(SOIL6_MOISTURE_PIN, ADC_11db);
     analogSetPinAttenuation(SOIL7_MOISTURE_PIN, ADC_11db);
@@ -1296,16 +1392,17 @@ void setup()
     analogSetPinAttenuation(SOIL9_MOISTURE_PIN, ADC_11db);
     analogSetPinAttenuation(SOIL10_MOISTURE_PIN, ADC_11db);
 
-    pinMode(SOIL1_MOISTURE_PIN, INPUT);
-    pinMode(SOIL2_MOISTURE_PIN, INPUT);
-    pinMode(SOIL3_MOISTURE_PIN, INPUT);
-    pinMode(SOIL4_MOISTURE_PIN, INPUT);
+    // Soil 1-4 handled by slave ESP via UART - no local pinMode needed
     pinMode(SOIL5_MOISTURE_PIN, INPUT);
     pinMode(SOIL6_MOISTURE_PIN, INPUT);
     pinMode(SOIL7_MOISTURE_PIN, INPUT);
     pinMode(SOIL8_MOISTURE_PIN, INPUT);
     pinMode(SOIL9_MOISTURE_PIN, INPUT);
     pinMode(SOIL10_MOISTURE_PIN, INPUT);
+
+    // Initialize UART link to slave ESP (soil moisture 1-4)
+    SLAVE_SERIAL.begin(SLAVE_BAUD, SERIAL_8N1, SLAVE_RX_PIN, SLAVE_TX_PIN);
+    serialPrintln("Slave UART initialized (Serial2)");
 
     // Initialize sensors
     dht.begin();
@@ -1356,6 +1453,7 @@ void loop()
 {
     server.handleClient();
     resetWatchdog();
+    pollSlaveUART(); // continuosly drain incoming UART bytes from slave ESP
 
     unsigned long now = millis();
     if (now - data.lastMeasurement >= config.measurementInterval)
